@@ -1,0 +1,17 @@
+/* GANTI @import DENGAN @tailwind AGAR LEBIH AMAN DI VITE */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* --- JAMPI-JAMPI ANTI MELEDAK (GLOBAL) --- */
+/* Kode ini memaksa SEMUA gambar di website Baginda agar nurut */
+img, video {
+    max-width: 100%;
+    height: auto;
+    display: block; /* Menghapus celah putih misterius di bawah gambar */
+}
+
+/* Memastikan padding/border tidak menambah lebar elemen */
+*, ::before, ::after {
+    box-sizing: border-box;
+}
