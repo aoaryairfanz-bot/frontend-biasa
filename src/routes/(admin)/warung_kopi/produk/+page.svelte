@@ -1,156 +1,109 @@
 <script>
     import { 
-        SearchIcon, PlusIcon, FilterIcon, MoreVerticalIcon, 
-        Edit2Icon, Trash2Icon, EyeIcon, XIcon, UploadCloudIcon,
-        BookIcon, BoxIcon, VideoIcon, ImageIcon, CheckCircleIcon, 
-        AlertTriangleIcon, GridIcon, ListIcon, ChevronLeftIcon, ChevronRightIcon,
-        FileTextIcon, LoaderIcon
+        SearchIcon, PlusIcon, FilterIcon, Edit2Icon, Trash2Icon, XIcon,
+        GridIcon, ListIcon, ChevronLeftIcon, ChevronRightIcon, 
+        FileTextIcon, LoaderIcon, BookIcon, BoxIcon, UploadCloudIcon,
+        ImageIcon, VideoIcon, CheckCircleIcon
     } from 'svelte-feather-icons';
     import { invalidateAll } from '$app/navigation'; 
-    import { PUBLIC_API_URL } from '$env/static/public'; // 1. Import Environment Variable
-    import imageCompression from 'browser-image-compression'; // 2. Import Library Kompresi
+    import { PUBLIC_API_URL } from '$env/static/public';
+    import imageCompression from 'browser-image-compression';
 
-    // --- 1. DATA DARI LOAD FUNCTION ---
+    // --- 1. DATA DARI SERVER ---
     let { data } = $props(); 
     let products = $derived(data.products || []); 
 
-    // Dropdown Subkategori (Unik & Sorted)
-    let uniqueSubcategories = $derived([...new Set(products.map(p => {
-        const cat = p.subcategory || '';
-        return cat.charAt(0).toUpperCase() + cat.slice(1);
-    }).filter(Boolean))].sort());
-
-    // --- 2. STATE VARIABLE ---
+    // --- 2. STATE GLOBAL ---
     let searchQuery = $state('');
-    let showModal = $state(false); 
-    let isSubmitting = $state(false); 
-    let submitStatus = $state(''); // Status teks untuk tombol (Kompres/Upload)
-    let isImporting = $state(false); 
-    let editingId = $state(null); 
-    let excelInput; 
-
-    // FILTER & VIEW STATE
     let activeCategory = $state('all'); 
     let viewMode = $state('grid'); 
     let currentPage = $state(1);
     let itemsPerPage = 10; 
+    let isImporting = $state(false);
+    let excelInput;
 
-    // PENAMPUNG FILE (File Asli)
-    let fileStorage = $state({
-        foto_1: null, foto_2: null, foto_3: null, video: null
-    });
+    // --- 3. STATE FORM & MODAL ---
+    let showModal = $state(false);
+    let isSubmitting = $state(false);
+    let submitStatus = $state(''); // "Mengompres..." atau "Mengirim..."
+    let editingId = $state(null);
 
-    // Form Data Teks (LENGKAP SESUAI JSON)
+    // Form Data Default
     let formData = $state({
         name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '',
         weight: '', length: '', width: '', height: '', diameter: '',
         isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
     });
 
-    // Preview URL
-    let previews = $state({
-        foto_1: null, foto_2: null, foto_3: null, video: null
-    });
+    // Penampung File (Asli & Preview)
+    let fileStorage = $state({ foto_1: null, foto_2: null, foto_3: null, video: null });
+    let previews = $state({ foto_1: null, foto_2: null, foto_3: null, video: null });
 
-    // 3. Gunakan Variable Global
-    const API_BASE = PUBLIC_API_URL;
-
-    // --- 3. LOGIC FILTER & PAGINATION ---
+    // --- 4. LOGIKA FILTER & PAGINASI ---
     let filteredProducts = $derived(products.filter(p => {
-        const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
-                              (p.subcategory && p.subcategory.toLowerCase().includes(searchQuery.toLowerCase())) ||
-                              (p.sku && p.sku.toLowerCase().includes(searchQuery.toLowerCase()));
+        const term = searchQuery.toLowerCase();
+        const matchesSearch = p.name.toLowerCase().includes(term) || 
+                              (p.subcategory && p.subcategory.toLowerCase().includes(term)) ||
+                              (p.sku && p.sku.toLowerCase().includes(term));
         const matchesCategory = activeCategory === 'all' ? true : p.category === activeCategory;
         return matchesSearch && matchesCategory;
     }));
 
     let paginatedProducts = $derived(filteredProducts.slice(
-        (currentPage - 1) * itemsPerPage,
+        (currentPage - 1) * itemsPerPage, 
         currentPage * itemsPerPage
     ));
 
     let totalPages = $derived(Math.ceil(filteredProducts.length / itemsPerPage));
 
-    // --- 4. HELPER ---
-    function formatRupiah(num) {
-        return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
-    }
-    
-    function getStockColor(stock) {
-        if (stock === 0) return 'text-red-600 bg-red-100';
-        if (stock < 5) return 'text-orange-600 bg-orange-100';
-        return 'text-green-600 bg-green-100';
-    }
+    // Helper Unik Subkategori
+    let uniqueSubcategories = $derived([...new Set(products.map(p => {
+        const cat = p.subcategory || '';
+        return cat.charAt(0).toUpperCase() + cat.slice(1);
+    }).filter(Boolean))].sort());
 
-    function toTitleCase(str) {
-        if (!str) return '';
-        return str.toLowerCase().replace(/(?:^|\s)\w/g, function(match) {
-            return match.toUpperCase();
-        });
-    }
+    // --- 5. FUNGSI HELPER ---
+    function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
+    function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
+    function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
+    function changePage(newPage) { if (newPage >= 1 && newPage <= totalPages) currentPage = newPage; }
 
-    function changePage(newPage) {
-        if (newPage >= 1 && newPage <= totalPages) currentPage = newPage;
-    }
-
-    // --- 5. FILE HANDLING ---
+    // --- 6. LOGIKA FILE ---
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
-            fileStorage[fieldName] = file; 
+            fileStorage[fieldName] = file;
             previews[fieldName] = URL.createObjectURL(file);
         }
     }
 
     function removeFile(fieldName) {
         fileStorage[fieldName] = null;
-        previews[fieldName] = null; 
+        previews[fieldName] = null;
         const input = document.getElementById(`input-${fieldName}`);
         if(input) input.value = '';
     }
 
-    // --- 6. EXCEL IMPORT HANDLING ---
-    async function handleExcelUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-
-        isImporting = true;
-        const token = localStorage.getItem("token");
-
-        const dataExcel = new FormData();
-        dataExcel.append('file', file); 
-
-        try {
-            const res = await fetch(`${API_BASE}/products/import`, {
-                method: "POST",
-                headers: { "Authorization": `Bearer ${token}` },
-                body: dataExcel
-            });
-
-            const result = await res.json();
-
-            if (res.ok) {
-                let msg = `✅ ${result.sukses || "Import Selesai"}\n\n`;
-                if (result.error_log && result.error_log.length > 0) {
-                    msg += "⚠️ Error:\n" + result.error_log.join("\n");
-                }
-                alert(msg);
-                await invalidateAll(); 
-            } else {
-                alert("Gagal Import: " + (result.detail || result.error || "Terjadi kesalahan"));
-            }
-        } catch (error) {
-            console.error(error);
-            alert("Error koneksi upload Excel.");
-        } finally {
-            isImporting = false;
-            if (excelInput) excelInput.value = ''; 
-        }
+    // --- 7. LOGIKA MODAL (BUKA/TUTUP/RESET) ---
+    function resetForm() {
+        editingId = null; 
+        formData = {
+            name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '',
+            weight: '', length: '', width: '', height: '', diameter: '',
+            isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
+        };
+        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
+        previews = { foto_1: null, foto_2: null, foto_3: null, video: null };
     }
 
-    // --- 7. ACTIONS & SUBMIT (DIPERBAIKI) ---
+    function openAddModal() {
+        resetForm();
+        showModal = true;
+    }
+
     function openEditModal(product) {
         editingId = product.id;
+        // Isi form dengan data lama
         formData = {
             name: toTitleCase(product.name), 
             sku: product.sku,
@@ -163,69 +116,58 @@
             weight: product.weight, length: product.length, width: product.width, height: product.height, diameter: product.diameter,
             isbn: product.isbn, publisher: product.publisher, author: product.author, publish_year: product.publish_year, pages: product.pages, book_version: product.book_version 
         };
+        // Tampilkan gambar lama
         previews = {
             foto_1: product.image_1_url,
             foto_2: product.image_2_url,
             foto_3: product.image_3_url,
             video: product.video_url
         };
+        // Reset file baru
         fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
         showModal = true;
     }
 
-    async function handleDelete(id, name) {
-        if (!confirm(`Yakin hapus "${name}"?`)) return;
-        const token = localStorage.getItem("token");
-        try {
-            const res = await fetch(`${API_BASE}/products/${id}`, {
-                method: "DELETE",
-                headers: { "Authorization": `Bearer ${token}` }
-            });
-            if (res.ok) { await invalidateAll(); } else { alert("Gagal hapus."); }
-        } catch (error) { alert("Error koneksi."); }
-    }
-
+    // --- 8. SUBMIT "NGEBUT" (DENGAN KOMPRESI) ---
     async function handleSubmit(e) {
         e.preventDefault(); 
         if (!fileStorage.foto_1 && !previews.foto_1) { alert("Wajib ada Thumbnail!"); return; }
         
         isSubmitting = true;
-        submitStatus = "Memproses Gambar..."; // Feedback ke user
+        submitStatus = "Mengompres..."; // Feedback Visual
         const token = localStorage.getItem("token");
 
-        // Konfigurasi Kompresi Cepat (Speed Mode)
-        const compressionOptions = {
-            maxSizeMB: 0.5,           // Target 500KB (Sangat Cepat)
-            maxWidthOrHeight: 1280,   // Resolusi Cukup
-            useWebWorker: true,
-            initialQuality: 0.7       // Kualitas 70%
+        // SETTING KOMPRESI "SPEED MODE"
+        const compressionOptions = { 
+            maxSizeMB: 0.5,           // Max 500KB (Kecil & Cepat)
+            maxWidthOrHeight: 1280,   // Resolusi cukup untuk web
+            useWebWorker: true,       // Jalan di background (Gak bikin lag)
+            initialQuality: 0.7       // Kualitas 70% (Masih tajam)
         };
 
         try {
             const dataToSend = new FormData();
             
-            // --- PROSES KOMPRESI ---
+            // 1. Kompresi Gambar
             const imageFields = ['foto_1', 'foto_2', 'foto_3'];
             for (const field of imageFields) {
                 if (fileStorage[field] && fileStorage[field] instanceof File) {
                     try {
                         const compressed = await imageCompression(fileStorage[field], compressionOptions);
                         dataToSend.append(field, compressed, compressed.name);
-                    } catch (err) {
-                        console.warn(`Gagal kompres ${field}, pakai file asli.`);
-                        dataToSend.append(field, fileStorage[field]);
+                    } catch (err) { 
+                        // Kalau gagal kompres, kirim aslinya (Fallback)
+                        dataToSend.append(field, fileStorage[field]); 
                     }
                 }
             }
             
-            // Video langsung (tanpa kompresi)
-            if (fileStorage.video && fileStorage.video instanceof File) {
-                dataToSend.append('video', fileStorage.video);
-            }
+            // 2. Video (Langsung)
+            if (fileStorage.video instanceof File) dataToSend.append('video', fileStorage.video);
 
-            submitStatus = "Mengirim Data..."; // Update status
+            submitStatus = "Mengirim..."; // Ganti status teks
 
-            // --- DATA TEKS ---
+            // 3. Data Teks
             dataToSend.append('name', toTitleCase(formData.name));
             dataToSend.append('subcategory', toTitleCase(formData.subcategory) || '');
             dataToSend.append('sku', formData.sku || '');
@@ -234,15 +176,15 @@
             dataToSend.append('stock', String(formData.stock));
             dataToSend.append('description', formData.description || '');
             
-            // Opsional Fields (Hanya append jika ada isinya)
-            const optionalFields = ['strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
-            optionalFields.forEach(key => {
+            // 4. Opsional
+            ['strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'].forEach(key => {
                 if (formData[key]) dataToSend.append(key, String(formData[key]));
             });
 
-            let url = `${API_BASE}/products/`;
+            // 5. Kirim Request
+            let url = `${PUBLIC_API_URL}/products/`;
             let method = "POST";
-            if (editingId) { url = `${API_BASE}/products/${editingId}`; method = "PUT"; }
+            if (editingId) { url = `${PUBLIC_API_URL}/products/${editingId}`; method = "PUT"; }
 
             const res = await fetch(url, {
                 method: method,
@@ -251,28 +193,50 @@
             });
 
             if (res.ok) {
-                alert("Sukses!"); showModal = false; resetForm(); await invalidateAll(); 
+                alert("Sukses!"); 
+                showModal = false; 
+                resetForm(); 
+                await invalidateAll(); // Refresh data tanpa reload
             } else {
-                const err = await res.json(); alert("Gagal: " + (err.detail || "Error"));
+                const err = await res.json(); 
+                alert("Gagal: " + (err.detail || "Error"));
             }
         } catch (error) { 
-            console.error(error);
-            alert("Gagal koneksi atau file terlalu besar."); 
+            console.error(error); 
+            alert("Gagal koneksi."); 
         } finally { 
             isSubmitting = false; 
             submitStatus = "";
         }
     }
 
-    function resetForm() {
-        editingId = null; 
-        formData = {
-            name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '',
-            weight: '', length: '', width: '', height: '', diameter: '',
-            isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
-        };
-        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
-        previews = { foto_1: null, foto_2: null, foto_3: null, video: null };
+    // --- 9. DELETE & IMPORT ---
+    async function handleDelete(id, name) {
+        if (!confirm(`Hapus "${name}"?`)) return;
+        const token = localStorage.getItem("token");
+        try {
+            await fetch(`${PUBLIC_API_URL}/products/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } });
+            await invalidateAll();
+        } catch (error) { alert("Error koneksi."); }
+    }
+
+    async function handleExcelUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+        isImporting = true;
+        const token = localStorage.getItem("token");
+        const dataExcel = new FormData();
+        dataExcel.append('file', file); 
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/products/import`, { method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: dataExcel });
+            const result = await res.json();
+            if (res.ok) {
+                alert(`✅ ${result.sukses || "Selesai"}`); await invalidateAll(); 
+            } else {
+                alert("Gagal Import: " + (result.detail || "Error"));
+            }
+        } catch (error) { alert("Error upload."); } 
+        finally { isImporting = false; if (excelInput) excelInput.value = ''; }
     }
 </script>
 
@@ -292,16 +256,16 @@
                 </div>
                 
                 <input type="file" bind:this={excelInput} onchange={handleExcelUpload} accept=".xlsx, .xls" hidden />
-                <button onclick={() => excelInput.click()} disabled={isImporting} 
-                    class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-green-200 disabled:opacity-50">
+                <button onclick={() => excelInput.click()} disabled={isImporting} class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-green-200 disabled:opacity-50">
                     {#if isImporting} <LoaderIcon size="18" class="animate-spin"/> {:else} <FileTextIcon size="18" /> <span class="hidden md:inline">Import</span> {/if}
                 </button>
 
-                <button onclick={() => { resetForm(); showModal = true; }} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
+                <button onclick={openAddModal} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
                     <PlusIcon size="18" /> <span class="hidden md:inline">Baru</span>
                 </button>
             </div>
         </div>
+
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-gray-50">
             <div class="flex p-1 bg-gray-100 rounded-xl">
                 <button onclick={() => {activeCategory = 'all'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
@@ -345,6 +309,7 @@
             </div>
             {/each}
         </div>
+    
     {:else}
         <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="overflow-x-auto">
@@ -442,18 +407,9 @@
                     <div class="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
                          <h4 class="text-sm font-bold text-gray-400 uppercase tracking-wider flex items-center gap-2"><FilterIcon size="14"/> Harga & Stok</h4>
                         <div class="grid grid-cols-3 gap-4">
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-1" for="price">Harga Jual</label>
-                                <input type="number" id="price" bind:value={formData.price} required class="w-full px-4 py-2 border rounded-xl" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-1" for="stock">Stok</label>
-                                <input type="number" id="stock" bind:value={formData.stock} required class="w-full px-4 py-2 border rounded-xl" />
-                            </div>
-                            <div>
-                                <label class="block text-sm font-bold text-gray-700 mb-1" for="strike_price">Coret</label>
-                                <input type="number" id="strike_price" bind:value={formData.strike_price} class="w-full px-4 py-2 border rounded-xl" />
-                            </div>
+                            <div><label class="block text-sm font-bold text-gray-700 mb-1" for="price">Harga Jual</label><input type="number" id="price" bind:value={formData.price} required class="w-full px-4 py-2 border rounded-xl" /></div>
+                            <div><label class="block text-sm font-bold text-gray-700 mb-1" for="stock">Stok</label><input type="number" id="stock" bind:value={formData.stock} required class="w-full px-4 py-2 border rounded-xl" /></div>
+                            <div><label class="block text-sm font-bold text-gray-700 mb-1" for="strike_price">Coret</label><input type="number" id="strike_price" bind:value={formData.strike_price} class="w-full px-4 py-2 border rounded-xl" /></div>
                         </div>
                     </div>
 
