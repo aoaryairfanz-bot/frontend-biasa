@@ -4,7 +4,7 @@
         AlertCircleIcon 
     } from 'svelte-feather-icons';
 
-    // --- 1. TERIMA DATA DARI +page.js ---
+    // --- 1. DATA DARI SERVER (+page.js) ---
     let { data } = $props(); 
     let branches = $derived(data.branches || []); 
 
@@ -14,17 +14,20 @@
     // --- 3. LOGIKA FILTER ---
     let filteredBranches = $derived(branches.filter(branch => {
         const term = searchQuery.toLowerCase();
-        // Pastikan field ada sebelum di-lowercase untuk mencegah error
         const name = branch.name?.toLowerCase() || "";
         const address = branch.address?.toLowerCase() || "";
         return name.includes(term) || address.includes(term);
     }));
 
-    // --- 4. HELPER ---
+    // --- 4. HELPER WHATSAPP ---
     function getWALink(phone, name) {
-        // Membersihkan nomor hp dari karakter aneh, pastikan format 62...
         const cleanPhone = phone ? phone.replace(/\D/g, '') : ''; 
         return `https://wa.me/${cleanPhone}?text=Halo%20${encodeURIComponent(name)},%20saya%20ingin%20info%20lebih%20lanjut.`;
+    }
+
+    // --- 5. HELPER IMAGE ERROR (PENTING: Harus Function) ---
+    function handleImageError(e) {
+        e.target.src = 'https://placehold.co/600x400/eee/999?text=No+Image';
     }
 </script>
 
@@ -62,7 +65,7 @@
                             src={branch.image_url || `https://placehold.co/600x400/C4161C/FFFFFF?text=${encodeURIComponent(branch.name)}`} 
                             alt={branch.name} 
                             class="w-full h-full object-cover group-hover:scale-105 transition duration-700"
-                            onerror={(e) => e.target.src = 'https://placehold.co/600x400/eee/999?text=No+Image'}
+                            onerror={handleImageError} 
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
                         <div class="absolute bottom-3 left-4 text-white">
@@ -86,36 +89,22 @@
 
                     <div class="p-5 pt-0 mt-auto grid grid-cols-2 gap-3">
                         {#if branch.map_url}
-                        <a 
-                            href={branch.map_url} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 transition"
-                        >
-                            <NavigationIcon size="16"/>
-                            Maps
+                        <a href={branch.map_url} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-bold text-xs hover:bg-gray-50 transition">
+                            <NavigationIcon size="16"/> Maps
                         </a>
                         {:else}
                         <button disabled class="flex items-center justify-center gap-2 py-2.5 rounded-xl border border-gray-100 text-gray-300 font-bold text-xs cursor-not-allowed">
-                            <NavigationIcon size="16"/>
-                            Maps
+                            <NavigationIcon size="16"/> Maps
                         </button>
                         {/if}
 
                         {#if branch.phone}
-                        <a 
-                            href={getWALink(branch.phone, branch.name)} 
-                            target="_blank" 
-                            rel="noopener noreferrer"
-                            class="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white font-bold text-xs hover:bg-green-700 transition shadow-lg shadow-green-100"
-                        >
-                            <PhoneIcon size="16"/>
-                            WhatsApp
+                        <a href={getWALink(branch.phone, branch.name)} target="_blank" rel="noopener noreferrer" class="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-green-600 text-white font-bold text-xs hover:bg-green-700 transition shadow-lg shadow-green-100">
+                            <PhoneIcon size="16"/> WhatsApp
                         </a>
                         {:else}
                         <button disabled class="flex items-center justify-center gap-2 py-2.5 rounded-xl bg-gray-100 text-gray-400 font-bold text-xs cursor-not-allowed">
-                            <PhoneIcon size="16"/>
-                            WhatsApp
+                            <PhoneIcon size="16"/> WhatsApp
                         </button>
                         {/if}
                     </div>
@@ -130,12 +119,7 @@
                 </div>
                 <h3 class="text-lg font-bold text-gray-700">Tidak ada cabang ditemukan</h3>
                 <p class="text-gray-500 text-sm mt-1">Coba kata kunci lain atau periksa koneksi internet.</p>
-                
-                {#if branches.length === 0}
-                    <p class="text-xs text-gray-400 mt-4">(Data dari API kosong atau gagal dimuat)</p>
-                {/if}
             </div>
         {/if}
-
     </div>
 </div>
