@@ -31,10 +31,9 @@ export async function load({ fetch }) {
             const products = await res.json();
             return { products };
         } else {
-            // Jika token kadaluarsa (401)
+            // Jika token kadaluarsa (401), hapus token dan tendang ke login
             if (res.status === 401) {
                 localStorage.removeItem("token");
-                // Redirect ini ada di dalam TRY, jadi harus hati-hati
                 throw redirect(302, '/login');
             }
             
@@ -43,14 +42,13 @@ export async function load({ fetch }) {
         }
 
     } catch (err) {
-        // --- PERBAIKAN PENTING ---
-        // Kita harus cek: apakah error ini sebenarnya adalah perintah redirect?
-        // Jika iya (status 302), kita harus lempar ulang (re-throw) agar SvelteKit menangkapnya
+        // --- PERISAI REDIRECT ---
+        // Menangkap perintah redirect (302) dan melemparnya keluar agar SvelteKit bisa memprosesnya
         if (err?.status === 302) {
             throw err;
         }
 
-        // Jika bukan redirect (error koneksi beneran), baru kita log
+        // Jika error koneksi biasa (internet mati, backend down)
         console.error("Fetch Error:", err);
         return { products: [] };
     }
