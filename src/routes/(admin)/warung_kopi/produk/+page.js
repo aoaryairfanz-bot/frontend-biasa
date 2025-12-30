@@ -1,18 +1,29 @@
 import { redirect } from '@sveltejs/kit';
+import { PUBLIC_API_URL } from '$env/static/public';
+import { browser } from '$app/environment';
 
+/** @type {import('./$types').PageLoad} */
 export async function load({ fetch }) {
-    const API_BASE = "https://aryairfan-backendbiasa.hf.space";
-    const token = localStorage.getItem("token");
+    // 1. Ambil URL dari Environment Variable
+    const API_BASE = PUBLIC_API_URL;
+    
+    // 2. Cek Token hanya jika di Browser (karena localStorage milik browser)
+    let token = null;
+    if (browser) {
+        token = localStorage.getItem("token");
+    }
 
-    console.log("1. Cek Token:", token); // Cek di Console Browser
-
-    if (!token) {
-        console.log("Token tidak ada, redirect ke login");
+    // Jika tidak ada token, arahkan ke login
+    // Catatan: Redirect ini paling aman dilakukan di sisi client untuk halaman admin CSR
+    if (browser && !token) {
         throw redirect(302, '/login');
     }
 
+    // Jika sedang SSR (server render), kita kembalikan data kosong dulu agar tidak error
+    if (!browser) return { products: [] };
+
     try {
-        console.log("2. Mulai Fetch ke:", `${API_BASE}/products/`);
+        console.log("Mulai Fetch ke:", `${API_BASE}/products/`);
         
         const res = await fetch(`${API_BASE}/products/`, {
             method: "GET",
@@ -22,15 +33,15 @@ export async function load({ fetch }) {
             }
         });
 
-        console.log("3. Status API:", res.status); // Harus 200
-
         if (res.ok) {
             const products = await res.json();
-            console.log("4. Data Berhasil:", products); // Cek isinya apa
             return { products };
+        } else if (res.status === 401) {
+            // Jika token kadaluarsa atau tidak valid
+            localStorage.removeItem("token");
+            throw redirect(302, '/login');
         } else {
             console.error("Gagal ambil produk. Status:", res.status);
-            // Kembalikan array kosong biar halaman gak crash, tapi kita tau errornya
             return { products: [] }; 
         }
     } catch (err) {

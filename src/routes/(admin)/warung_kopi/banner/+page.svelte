@@ -4,6 +4,7 @@
         LayersIcon, CheckCircleIcon, LoaderIcon, XIcon, UploadCloudIcon 
     } from 'svelte-feather-icons';
     import { onMount } from 'svelte';
+    import { PUBLIC_API_URL } from '$env/static/public'; // 1. Integrasi Env Cloudflare
 
     // --- STATE VARIABLES ---
     let activePopup = $state(null);
@@ -16,19 +17,19 @@
     let formData = $state({
         title: '',
         link_url: '',
-        type: 'slider', // Default 'slider'
+        type: 'slider', 
         image: null
     });
     
     let imagePreview = $state(null);
-    let fileInput; // Referensi input file
+    let fileInput; 
+
+    // 2. Menggunakan URL dari Dashboard Cloudflare secara otomatis
+    const API_BASE = PUBLIC_API_URL;
 
     // --- 1. FETCH DATA (LOAD) ---
     async function loadData() {
         isLoading = true;
-        const API_BASE = "https://aryairfan-backendbiasa.hf.space";
-        // const token = localStorage.getItem("token"); // Aktifkan jika butuh auth
-
         try {
             // Fetch Sliders
             const resSlider = await fetch(`${API_BASE}/banners/`);
@@ -45,7 +46,6 @@
         }
     }
 
-    // Jalankan saat halaman dibuka
     onMount(() => {
         loadData();
     });
@@ -75,20 +75,19 @@
         }
 
         isSubmitting = true;
-        const API_BASE = "https://aryairfan-backendbiasa.hf.space";
-        const token = localStorage.getItem("token"); // Ambil token login
+        const token = localStorage.getItem("token"); 
 
         try {
             const dataToSend = new FormData();
             dataToSend.append('title', formData.title);
             dataToSend.append('link_url', formData.link_url);
             dataToSend.append('type', formData.type);
-            dataToSend.append('image', formData.image); // Sesuai backend: image: UploadFile
+            dataToSend.append('image', formData.image); 
 
             const res = await fetch(`${API_BASE}/banners/`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${token}` // Header Auth
+                    "Authorization": `Bearer ${token}` 
                 },
                 body: dataToSend
             });
@@ -97,7 +96,7 @@
                 alert(`Berhasil menambah ${formData.type}!`);
                 showModal = false;
                 resetForm();
-                loadData(); // Refresh tampilan
+                loadData(); 
             } else {
                 const err = await res.json();
                 alert("Gagal: " + (err.detail || "Terjadi kesalahan"));
@@ -186,7 +185,7 @@
                     <div class="relative aspect-video bg-gray-200">
                         <img src={banner.image_url} alt={banner.title} class="w-full h-full object-cover" />
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <button class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition" title="Hapus (Perlu Endpoint API)">
+                            <button class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition" title="Hapus">
                                 <Trash2Icon size="18"/>
                             </button>
                         </div>

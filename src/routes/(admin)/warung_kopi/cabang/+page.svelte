@@ -4,6 +4,7 @@
         XIcon, LoaderIcon, HomeIcon, MapIcon, ExternalLinkIcon 
     } from 'svelte-feather-icons';
     import { onMount } from 'svelte';
+    import { PUBLIC_API_URL } from '$env/static/public'; // 1. Tambahkan Import PUBLIC_API_URL
 
     // --- STATE ---
     let branches = $state([]);
@@ -19,7 +20,8 @@
         maps_url: ''
     });
 
-    const API_BASE = "https://aryairfan-backendbiasa.hf.space";
+    // 2. Gunakan PUBLIC_API_URL sebagai basis
+    const API_BASE = PUBLIC_API_URL;
 
     // --- 1. LOAD DATA ---
     async function loadBranches() {
@@ -93,7 +95,6 @@
 </script>
 
 <div class="space-y-6">
-    
     <div class="flex flex-col md:flex-row justify-between items-center gap-4 bg-white p-6 rounded-3xl shadow-sm border border-gray-100">
         <div>
             <h2 class="text-2xl font-bold text-gray-800 flex items-center gap-2">
@@ -162,7 +163,6 @@
 {#if showModal}
 <div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
     <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
-        
         <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
             <h3 class="text-xl font-bold text-gray-800 uppercase italic tracking-tighter">Tambah Cabang Baru</h3>
             <button onclick={() => showModal = false} class="text-gray-400 hover:text-red-500 transition p-2 bg-white rounded-full shadow-sm">
