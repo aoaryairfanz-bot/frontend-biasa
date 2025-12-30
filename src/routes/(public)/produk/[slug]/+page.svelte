@@ -1,6 +1,7 @@
 <script>
     import { fade, slide } from 'svelte/transition';
     import { page } from '$app/stores';
+    import { PUBLIC_API_URL } from '$env/static/public'; // Hamba tambahkan import ini
 
     let { data } = $props();
     let product = $derived(data.product);
@@ -44,7 +45,8 @@
     // --- LOGIC CABANG ---
     async function loadBranches() {
         try {
-            const res = await fetch('https://aryairfan-backendbiasa.hf.space/branches');
+            // PERBAIKAN: Menggunakan PUBLIC_API_URL
+            const res = await fetch(`${PUBLIC_API_URL}/branches`);
             const data = await res.json();
             if (data && data.length > 0) {
                 branchList = data;
@@ -99,7 +101,8 @@
     async function loadRelatedProducts() {
         isLoadingRelated = true;
         try {
-            const res = await fetch('https://aryairfan-backendbiasa.hf.space/products/'); 
+            // PERBAIKAN: Menggunakan PUBLIC_API_URL
+            const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             const allProducts = await res.json();
             relatedProducts = allProducts.filter(p => p.slug !== product.slug).slice(0, 6); 
         } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
