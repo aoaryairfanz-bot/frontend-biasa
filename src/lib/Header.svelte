@@ -17,11 +17,31 @@
     }
 
     const mobileMenus = [
-        { label: 'home', icon: 'M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6', link: '/' },
-        { label: 'katalog', icon: 'M4 6h16M4 12h16M4 18h16', link: '/katalog' },
-        { label: 'cabang', icon: 'M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z M15 11a3 3 0 11-6 0 3 3 0 016 0z', link: '/cabang' },
-        { label: 'pesan', icon: 'M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z', link: '/bantuan' }
-    ];
+            { 
+                label: 'Home', 
+                link: '/', 
+                // Lucide House
+                icon: '<path d="M15 21v-8a1 1 0 0 0-1-1h-4a1 1 0 0 0-1 1v8"/><path d="M3 10a2 2 0 0 1 .709-1.528l7-6a2 2 0 0 1 2.582 0l7 6A2 2 0 0 1 21 10v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>' 
+            },
+            { 
+                label: 'Produk', 
+                link: '/katalog', 
+                // Lucide Shopping Bag
+                icon: '<path d="M16 10a4 4 0 0 1-8 0"/><path d="M3.103 6.034h17.794"/><path d="M3.4 5.467a2 2 0 0 0-.4 1.2V20a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V6.667a2 2 0 0 0-.4-1.2l-2-2.667A2 2 0 0 0 17 2H7a2 2 0 0 0-1.6.8z"/>' 
+            },
+            { 
+                label: 'Cabang', 
+                link: '/cabang', 
+                // Lucide Map Pin House
+                icon: '<path d="M15 22a1 1 0 0 1-1-1v-4a1 1 0 0 1 .445-.832l3-2a1 1 0 0 1 1.11 0l3 2A1 1 0 0 1 22 17v4a1 1 0 0 1-1 1z"/><path d="M18 10a8 8 0 0 0-16 0c0 4.993 5.539 10.193 7.399 11.799a1 1 0 0 0 .601.2"/><path d="M18 22v-3"/><circle cx="10" cy="10" r="3"/>' 
+            },
+            { 
+                label: 'Bantuan', 
+                link: '/bantuan', 
+                // Lucide Heart Handshake
+                icon: '<path d="M19.414 14.414C21 12.828 22 11.5 22 9.5a5.5 5.5 0 0 0-9.591-3.676.6.6 0 0 1-.818.001A5.5 5.5 0 0 0 2 9.5c0 2.3 1.5 4 3 5.5l5.535 5.362a2 2 0 0 0 2.879.052 2.12 2.12 0 0 0-.004-3 2.124 2.124 0 1 0 3-3 2.124 2.124 0 0 0 3.004 0 2 2 0 0 0 0-2.828l-1.881-1.882a2.41 2.41 0 0 0-3.409 0l-1.71 1.71a2 2 0 0 1-2.828 0 2 2 0 0 1 0-2.828l2.823-2.762z"/>' 
+            }
+        ];
 </script>
 
 <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 font-sans">
@@ -69,11 +89,11 @@
             <div class="flex gap-6 text-sm">
                 <a href="/katalog" 
                    class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    katalog
+                    Katalog
                 </a>
                 <a href="/cabang" 
                    class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/cabang') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    cabang
+                    Cabang
                 </a>
                 <a href="/bantuan" 
                    class="transition-all duration-300 {$page.url.pathname.startsWith('/bantuan') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
