@@ -7,7 +7,7 @@
     import imageCompression from 'browser-image-compression';
 
     // --- PROPS DARI PARENT ---
-    // subcategories dikirim dari page.svelte agar dropdown tetap jalan
+    // Menggunakan $props() untuk menerima data dari halaman utama
     let { show, editData, subcategories = [], onClose, onSuccess } = $props();
 
     // --- STATE ---
@@ -23,11 +23,11 @@
         isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
     });
 
-    // --- EFFECT: ISI FORM SAAT EDIT ---
+    // --- EFFECT: ISI FORM OTOMATIS SAAT EDIT ---
     $effect(() => {
         if (show) {
             if (editData) {
-                // Mode Edit: Isi form dengan data yang ada
+                // Mode Edit: Salin data yang ada ke form
                 formData = { 
                     name: editData.name,
                     sku: editData.sku,
@@ -49,15 +49,15 @@
                     pages: editData.pages,
                     book_version: editData.book_version
                 };
-                // Load preview gambar dari server
+                // Load preview gambar dari URL server
                 previews.foto_1 = editData.image_1_url;
                 previews.foto_2 = editData.image_2_url;
                 previews.foto_3 = editData.image_3_url;
                 previews.video = editData.video_url;
-                // Reset file storage fisik
+                // Reset file fisik (karena belum ada yg diupload baru)
                 fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
             } else {
-                // Mode Tambah: Reset form total
+                // Mode Tambah: Kosongkan form
                 resetForm();
             }
         }
@@ -73,7 +73,7 @@
         previews = { foto_1: null, foto_2: null, foto_3: null, video: null };
     }
 
-    // --- LOGIKA FILE ---
+    // --- LOGIKA FILE & GAMBAR ---
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
@@ -96,7 +96,8 @@
     // --- SUBMIT DENGAN KOMPRESI ---
     async function handleSubmit(e) {
         e.preventDefault();
-        // Validasi Thumbnail hanya wajib jika ini produk baru (tidak ada preview foto_1)
+        
+        // Validasi: Wajib ada thumbnail
         if (!fileStorage.foto_1 && !previews.foto_1) { alert("Wajib ada Thumbnail!"); return; }
 
         isSubmitting = true;
@@ -107,7 +108,7 @@
         try {
             const dataToSend = new FormData();
             
-            // 1. Kompresi Gambar
+            // 1. Proses Gambar (Kompresi)
             const imageFields = ['foto_1', 'foto_2', 'foto_3'];
             for (const field of imageFields) {
                 if (fileStorage[field] instanceof File) {
@@ -115,16 +116,18 @@
                         const compressed = await imageCompression(fileStorage[field], compressionOptions);
                         dataToSend.append(field, compressed, compressed.name);
                     } catch { 
+                        // Jika gagal kompres, kirim file asli
                         dataToSend.append(field, fileStorage[field]); 
                     }
                 }
             }
-            // 2. Video (Tanpa Kompresi)
+            
+            // 2. Proses Video (Langsung tanpa kompresi)
             if (fileStorage.video instanceof File) dataToSend.append('video', fileStorage.video);
 
             submitStatus = "Mengirim...";
             
-            // 3. Data Teks
+            // 3. Proses Data Teks
             dataToSend.append('name', toTitleCase(formData.name));
             dataToSend.append('subcategory', toTitleCase(formData.subcategory) || '');
             dataToSend.append('sku', formData.sku || '');
@@ -133,13 +136,13 @@
             dataToSend.append('stock', String(formData.stock));
             dataToSend.append('description', formData.description || '');
 
-            // Opsional
+            // Field Opsional
             const optionalFields = ['strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
             optionalFields.forEach(key => {
                 if (formData[key]) dataToSend.append(key, String(formData[key]));
             });
 
-            // Tentukan URL dan Method
+            // Tentukan Endpoint (POST untuk Baru, PUT untuk Edit)
             let url = `${PUBLIC_API_URL}/products/`;
             let method = "POST";
             if (editData && editData.id) { 
@@ -155,7 +158,7 @@
 
             if (res.ok) {
                 alert("Sukses!");
-                onSuccess(); // Refresh parent
+                onSuccess(); // Beritahu halaman utama untuk refresh
             } else {
                 const err = await res.json();
                 alert("Gagal: " + (err.detail || "Error"));
@@ -174,11 +177,11 @@
         
         <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50 sticky top-0 z-10">
             <h3 class="text-xl font-bold text-gray-800">{editData ? 'Edit Produk' : 'Tambah Produk'}</h3>
-            <button onclick={onClose} class="text-gray-400 hover:text-red-500 p-2"><XIcon size="24" /></button>
+            <button on:click={onClose} class="text-gray-400 hover:text-red-500 p-2"><XIcon size="24" /></button>
         </div>
 
         <div class="p-8 max-h-[80vh] overflow-y-auto custom-scrollbar">
-            <form class="grid grid-cols-1 md:grid-cols-12 gap-8" onsubmit={handleSubmit}>
+            <form class="grid grid-cols-1 md:grid-cols-12 gap-8" on:submit={handleSubmit}>
                 
                 <div class="md:col-span-8 space-y-6">
                     <div class="bg-gray-50 p-5 rounded-2xl border border-gray-100 space-y-4">
@@ -265,11 +268,11 @@
                         <div class="relative border-2 border-dashed {fileStorage.foto_1 ? 'border-green-400' : 'border-blue-300'} rounded-xl h-40 flex items-center justify-center">
                             {#if previews.foto_1}
                                 <img src={previews.foto_1} alt="Preview" class="h-full w-full object-cover rounded-lg" />
-                                <button type="button" onclick={() => removeFile('foto_1')} class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"><XIcon size="14"/></button>
+                                <button type="button" on:click={() => removeFile('foto_1')} class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"><XIcon size="14"/></button>
                             {:else}
                                 <div class="text-center"><UploadCloudIcon size="24" class="mx-auto text-gray-400"/><span class="text-xs">Upload</span></div>
                             {/if}
-                            <input type="file" id="foto_1" accept="image/*" onchange={(e) => handleFileChange(e, 'foto_1')} class="absolute inset-0 opacity-0 cursor-pointer" />
+                            <input type="file" id="foto_1" accept="image/*" on:change={(e) => handleFileChange(e, 'foto_1')} class="absolute inset-0 opacity-0 cursor-pointer" />
                         </div>
                     </div>
 
@@ -278,11 +281,11 @@
                         <div class="relative border-2 border-dashed rounded-xl h-24 flex items-center justify-center">
                             {#if previews[f]}
                                 <img src={previews[f]} alt="Preview" class="h-full w-full object-cover rounded-lg" />
-                                <button type="button" onclick={() => removeFile(f)} class="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"><XIcon size="10"/></button>
+                                <button type="button" on:click={() => removeFile(f)} class="absolute top-0 right-0 bg-red-500 text-white rounded-full p-1"><XIcon size="10"/></button>
                             {:else}
                                 <PlusIcon size="20" class="text-gray-400"/>
                             {/if}
-                            <input type="file" id={f} accept="image/*" onchange={(e) => handleFileChange(e, f)} class="absolute inset-0 opacity-0 cursor-pointer" />
+                            <input type="file" id={f} accept="image/*" on:change={(e) => handleFileChange(e, f)} class="absolute inset-0 opacity-0 cursor-pointer" />
                         </div>
                         {/each}
                     </div>
@@ -294,17 +297,17 @@
                                 <div class="text-xs text-green-600 font-bold flex flex-col items-center">
                                     <CheckCircleIcon size="20" class="mb-1"/> Video OK
                                 </div>
-                                <button type="button" onclick={() => removeFile('video')} class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"><XIcon size="12"/></button>
+                                <button type="button" on:click={() => removeFile('video')} class="absolute top-2 right-2 bg-red-500 text-white rounded-full p-1"><XIcon size="12"/></button>
                             {:else}
                                 <span class="text-xs text-gray-400">Upload MP4</span>
                             {/if}
-                            <input type="file" id="video" accept="video/*" onchange={(e) => handleFileChange(e, 'video')} class="absolute inset-0 opacity-0 cursor-pointer" />
+                            <input type="file" id="video" accept="video/*" on:change={(e) => handleFileChange(e, 'video')} class="absolute inset-0 opacity-0 cursor-pointer" />
                         </div>
                     </div>
                 </div>
 
                 <div class="md:col-span-12 flex justify-end gap-3 pt-4 border-t border-gray-100">
-                    <button type="button" onclick={onClose} class="px-6 py-3 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition">
+                    <button type="button" on:click={onClose} class="px-6 py-3 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition">
                         Batal
                     </button>
                     

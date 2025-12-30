@@ -27,7 +27,7 @@
     let showModal = $state(false);
     let editingData = $state(null); // Data yang mau diedit
 
-    // Hitung Subkategori untuk disetor ke Modal
+    // Hitung Subkategori
     let uniqueSubcategories = $derived([...new Set(products.map(p => {
         const cat = p.subcategory || '';
         return cat.charAt(0).toUpperCase() + cat.slice(1);
@@ -66,11 +66,13 @@
 
     // --- MODAL CONTROLLER ---
     function openAddModal() {
+        console.log("Tombol Baru Ditekan"); // Debugging
         editingData = null; // Mode Tambah
         showModal = true;
     }
 
     function openEditModal(product) {
+        console.log("Edit Produk:", product.name); // Debugging
         editingData = product; // Mode Edit
         showModal = true;
     }
@@ -83,7 +85,7 @@
     async function handleModalSuccess() {
         showModal = false;
         editingData = null;
-        await invalidateAll(); // Refresh data tanpa reload
+        await invalidateAll(); // Refresh data
     }
 
     // --- ACTIONS LAIN ---
@@ -142,13 +144,14 @@
                         class="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none transition" />
                 </div>
                 
-                <input type="file" bind:this={excelInput} onchange={handleExcelUpload} accept=".xlsx, .xls" hidden />
-                <button onclick={() => excelInput.click()} disabled={isImporting} 
+                <input type="file" bind:this={excelInput} on:change={handleExcelUpload} accept=".xlsx, .xls" hidden />
+                
+                <button on:click={() => excelInput.click()} disabled={isImporting} 
                     class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-green-200 disabled:opacity-50">
                     {#if isImporting} <LoaderIcon size="18" class="animate-spin"/> {:else} <FileTextIcon size="18" /> <span class="hidden md:inline">Import</span> {/if}
                 </button>
 
-                <button onclick={openAddModal} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
+                <button on:click={openAddModal} class="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition shadow-lg shadow-blue-200">
                     <PlusIcon size="18" /> <span class="hidden md:inline">Baru</span>
                 </button>
             </div>
@@ -156,13 +159,13 @@
 
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-gray-50">
             <div class="flex p-1 bg-gray-100 rounded-xl">
-                <button onclick={() => {activeCategory = 'all'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
-                <button onclick={() => {activeCategory = 'book'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'book' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BookIcon size="14"/> Buku</button>
-                <button onclick={() => {activeCategory = 'nonbook'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'nonbook' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BoxIcon size="14"/> Non-Buku</button>
+                <button on:click={() => {activeCategory = 'all'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
+                <button on:click={() => {activeCategory = 'book'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'book' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BookIcon size="14"/> Buku</button>
+                <button on:click={() => {activeCategory = 'nonbook'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'nonbook' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BoxIcon size="14"/> Non-Buku</button>
             </div>
             <div class="flex gap-2">
-                <button onclick={() => viewMode = 'grid'} class="p-2 rounded-lg transition {viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}"><GridIcon size="18"/></button>
-                <button onclick={() => viewMode = 'list'} class="p-2 rounded-lg transition {viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}"><ListIcon size="18"/></button>
+                <button on:click={() => viewMode = 'grid'} class="p-2 rounded-lg transition {viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}"><GridIcon size="18"/></button>
+                <button on:click={() => viewMode = 'list'} class="p-2 rounded-lg transition {viewMode === 'list' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}"><ListIcon size="18"/></button>
             </div>
         </div>
     </div>
@@ -177,8 +180,8 @@
                         <span class="absolute top-2 left-2 bg-blue-500/80 text-white text-[10px] font-bold px-2 py-1 rounded backdrop-blur-sm">BUKU</span>
                     {/if}
                     <div class="absolute inset-0 bg-black/40 flex items-center justify-center gap-2 opacity-0 group-hover:opacity-100 transition duration-200">
-                        <button onclick={() => openEditModal(product)} class="bg-white text-blue-600 p-2 rounded-full hover:scale-110 transition"><Edit2Icon size="16"/></button>
-                        <button onclick={() => handleDelete(product.id, product.name)} class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition"><Trash2Icon size="16"/></button>
+                        <button on:click={() => openEditModal(product)} class="bg-white text-blue-600 p-2 rounded-full hover:scale-110 transition"><Edit2Icon size="16"/></button>
+                        <button on:click={() => handleDelete(product.id, product.name)} class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition"><Trash2Icon size="16"/></button>
                     </div>
                 </div>
                 <div class="p-4 flex-1 flex flex-col">
@@ -226,8 +229,8 @@
                             <td class="p-4 text-center"><span class="px-2 py-1 rounded text-[10px] font-bold {getStockColor(product.stock)}">{product.stock}</span></td>
                             <td class="p-4 text-right">
                                 <div class="flex justify-end gap-2 opacity-0 group-hover:opacity-100">
-                                    <button onclick={() => openEditModal(product)} class="text-blue-600 hover:bg-blue-100 p-1 rounded"><Edit2Icon size="14"/></button>
-                                    <button onclick={() => handleDelete(product.id, product.name)} class="text-red-500 hover:bg-red-100 p-1 rounded"><Trash2Icon size="14"/></button>
+                                    <button on:click={() => openEditModal(product)} class="text-blue-600 hover:bg-blue-100 p-1 rounded"><Edit2Icon size="14"/></button>
+                                    <button on:click={() => handleDelete(product.id, product.name)} class="text-red-500 hover:bg-red-100 p-1 rounded"><Trash2Icon size="14"/></button>
                                 </div>
                             </td>
                         </tr>
@@ -244,9 +247,9 @@
 
     {#if totalPages > 1}
     <div class="flex justify-center items-center gap-4 mt-8">
-        <button onclick={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="p-2 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30"><ChevronLeftIcon size="20"/></button>
+        <button on:click={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="p-2 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30"><ChevronLeftIcon size="20"/></button>
         <span class="text-sm font-bold text-gray-600">Hal {currentPage} / {totalPages}</span>
-        <button onclick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="p-2 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30"><ChevronRightIcon size="20"/></button>
+        <button on:click={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="p-2 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30"><ChevronRightIcon size="20"/></button>
     </div>
     {/if}
 
