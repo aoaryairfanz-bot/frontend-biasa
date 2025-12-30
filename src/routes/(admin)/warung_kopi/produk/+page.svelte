@@ -7,6 +7,8 @@
         FileTextIcon, LoaderIcon
     } from 'svelte-feather-icons';
     import { invalidateAll } from '$app/navigation'; 
+    import { PUBLIC_API_URL } from '$env/static/public'; // 1. Import Environment Variable
+    import imageCompression from 'browser-image-compression'; // 2. Import Library Kompresi
 
     // --- 1. DATA DARI LOAD FUNCTION ---
     let { data } = $props(); 
@@ -22,6 +24,7 @@
     let searchQuery = $state('');
     let showModal = $state(false); 
     let isSubmitting = $state(false); 
+    let submitStatus = $state(''); // Status teks untuk tombol (Kompres/Upload)
     let isImporting = $state(false); 
     let editingId = $state(null); 
     let excelInput; 
@@ -39,33 +42,18 @@
 
     // Form Data Teks (LENGKAP SESUAI JSON)
     let formData = $state({
-        name: '', 
-        sku: '', 
-        category: 'nonbook', 
-        subcategory: '', 
-        price: '', 
-        strike_price: '', 
-        stock: '', 
-        description: '',
-        // Fisik
-        weight: '', 
-        length: '', 
-        width: '', 
-        height: '', 
-        diameter: '',
-        // Buku
-        isbn: '', 
-        publisher: '', 
-        author: '', 
-        publish_year: '', 
-        pages: '', 
-        book_version: '' // Tambahan yang sempat kurang
+        name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '',
+        weight: '', length: '', width: '', height: '', diameter: '',
+        isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
     });
 
     // Preview URL
     let previews = $state({
         foto_1: null, foto_2: null, foto_3: null, video: null
     });
+
+    // 3. Gunakan Variable Global
+    const API_BASE = PUBLIC_API_URL;
 
     // --- 3. LOGIC FILTER & PAGINATION ---
     let filteredProducts = $derived(products.filter(p => {
@@ -127,7 +115,6 @@
         if (!file) return;
 
         isImporting = true;
-        const API_BASE = "https://aryairfan-backendbiasa.hf.space";
         const token = localStorage.getItem("token");
 
         const dataExcel = new FormData();
@@ -161,10 +148,9 @@
         }
     }
 
-    // --- 7. ACTIONS & SUBMIT ---
+    // --- 7. ACTIONS & SUBMIT (DIPERBAIKI) ---
     function openEditModal(product) {
         editingId = product.id;
-        // Isi form LENGKAP
         formData = {
             name: toTitleCase(product.name), 
             sku: product.sku,
@@ -174,19 +160,8 @@
             strike_price: product.strike_price,
             stock: product.stock,
             description: product.description,
-            // Fisik
-            weight: product.weight, 
-            length: product.length, 
-            width: product.width, 
-            height: product.height, 
-            diameter: product.diameter,
-            // Buku
-            isbn: product.isbn, 
-            publisher: product.publisher, 
-            author: product.author, 
-            publish_year: product.publish_year, 
-            pages: product.pages, 
-            book_version: product.book_version 
+            weight: product.weight, length: product.length, width: product.width, height: product.height, diameter: product.diameter,
+            isbn: product.isbn, publisher: product.publisher, author: product.author, publish_year: product.publish_year, pages: product.pages, book_version: product.book_version 
         };
         previews = {
             foto_1: product.image_1_url,
@@ -200,7 +175,6 @@
 
     async function handleDelete(id, name) {
         if (!confirm(`Yakin hapus "${name}"?`)) return;
-        const API_BASE = "https://aryairfan-backendbiasa.hf.space";
         const token = localStorage.getItem("token");
         try {
             const res = await fetch(`${API_BASE}/products/${id}`, {
@@ -214,49 +188,57 @@
     async function handleSubmit(e) {
         e.preventDefault(); 
         if (!fileStorage.foto_1 && !previews.foto_1) { alert("Wajib ada Thumbnail!"); return; }
+        
         isSubmitting = true;
-        const API_BASE = "https://aryairfan-backendbiasa.hf.space";
+        submitStatus = "Memproses Gambar..."; // Feedback ke user
         const token = localStorage.getItem("token");
+
+        // Konfigurasi Kompresi Cepat (Speed Mode)
+        const compressionOptions = {
+            maxSizeMB: 0.5,           // Target 500KB (Sangat Cepat)
+            maxWidthOrHeight: 1280,   // Resolusi Cukup
+            useWebWorker: true,
+            initialQuality: 0.7       // Kualitas 70%
+        };
 
         try {
             const dataToSend = new FormData();
-            const capName = toTitleCase(formData.name);
-            const capSub = toTitleCase(formData.subcategory);
+            
+            // --- PROSES KOMPRESI ---
+            const imageFields = ['foto_1', 'foto_2', 'foto_3'];
+            for (const field of imageFields) {
+                if (fileStorage[field] && fileStorage[field] instanceof File) {
+                    try {
+                        const compressed = await imageCompression(fileStorage[field], compressionOptions);
+                        dataToSend.append(field, compressed, compressed.name);
+                    } catch (err) {
+                        console.warn(`Gagal kompres ${field}, pakai file asli.`);
+                        dataToSend.append(field, fileStorage[field]);
+                    }
+                }
+            }
+            
+            // Video langsung (tanpa kompresi)
+            if (fileStorage.video && fileStorage.video instanceof File) {
+                dataToSend.append('video', fileStorage.video);
+            }
 
-            // Wajib & Teks Dasar
-            dataToSend.append('name', capName);
-            dataToSend.append('subcategory', capSub || '');
+            submitStatus = "Mengirim Data..."; // Update status
+
+            // --- DATA TEKS ---
+            dataToSend.append('name', toTitleCase(formData.name));
+            dataToSend.append('subcategory', toTitleCase(formData.subcategory) || '');
             dataToSend.append('sku', formData.sku || '');
             dataToSend.append('category', formData.category);
             dataToSend.append('price', String(formData.price));
             dataToSend.append('stock', String(formData.stock));
             dataToSend.append('description', formData.description || '');
             
-            // Angka Opsional (Kirim string kosong atau angka)
-            if (formData.strike_price) dataToSend.append('strike_price', String(formData.strike_price));
-            
-            // FISIK (Weight, Dimensions)
-            if (formData.weight) dataToSend.append('weight', String(formData.weight));
-            if (formData.length) dataToSend.append('length', String(formData.length));
-            if (formData.width) dataToSend.append('width', String(formData.width));
-            if (formData.height) dataToSend.append('height', String(formData.height));
-            if (formData.diameter) dataToSend.append('diameter', String(formData.diameter));
-
-            // BUKU
-            if (formData.category === 'book') {
-                if (formData.isbn) dataToSend.append('isbn', formData.isbn);
-                if (formData.publisher) dataToSend.append('publisher', formData.publisher);
-                if (formData.author) dataToSend.append('author', formData.author);
-                if (formData.publish_year) dataToSend.append('publish_year', String(formData.publish_year));
-                if (formData.pages) dataToSend.append('pages', String(formData.pages));
-                if (formData.book_version) dataToSend.append('book_version', formData.book_version);
-            }
-
-            // FILE
-            if (fileStorage.foto_1) dataToSend.append('foto_1', fileStorage.foto_1); 
-            if (fileStorage.foto_2) dataToSend.append('foto_2', fileStorage.foto_2);
-            if (fileStorage.foto_3) dataToSend.append('foto_3', fileStorage.foto_3);
-            if (fileStorage.video) dataToSend.append('video', fileStorage.video);
+            // Opsional Fields (Hanya append jika ada isinya)
+            const optionalFields = ['strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
+            optionalFields.forEach(key => {
+                if (formData[key]) dataToSend.append(key, String(formData[key]));
+            });
 
             let url = `${API_BASE}/products/`;
             let method = "POST";
@@ -273,7 +255,13 @@
             } else {
                 const err = await res.json(); alert("Gagal: " + (err.detail || "Error"));
             }
-        } catch (error) { alert("Gagal koneksi."); } finally { isSubmitting = false; }
+        } catch (error) { 
+            console.error(error);
+            alert("Gagal koneksi atau file terlalu besar."); 
+        } finally { 
+            isSubmitting = false; 
+            submitStatus = "";
+        }
     }
 
     function resetForm() {
@@ -289,9 +277,7 @@
 </script>
 
 <div class="space-y-6 relative min-h-screen pb-20">
-    
     <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
-        
         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
             <div>
                 <h2 class="text-2xl font-bold text-gray-800 pl-2">Katalog Produk</h2>
@@ -316,7 +302,6 @@
                 </button>
             </div>
         </div>
-
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-gray-50">
             <div class="flex p-1 bg-gray-100 rounded-xl">
                 <button onclick={() => {activeCategory = 'all'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
@@ -558,7 +543,7 @@
                         
                         {#if isSubmitting}
                             <LoaderIcon size="20" class="animate-spin" />
-                            <span>Menyimpan...</span>
+                            <span>{submitStatus || "Menyimpan..."}</span>
                         {:else}
                             <UploadCloudIcon size="20"/>
                             <span>{editingId ? 'Simpan Perubahan' : 'Simpan Produk'}</span>
