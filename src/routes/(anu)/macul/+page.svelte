@@ -1,11 +1,12 @@
 <script>
-    import { goto } from '$app/navigation'; // Untuk redirect halaman
+    import { goto } from '$app/navigation';
+    import { PUBLIC_API_URL } from '$env/static/public'; // Hamba tambahkan import ini
     
     // --- KONFIGURASI PENTING ---
-    // 1. URL Backend Online (Bukan Localhost lagi)
-    const API_BASE_URL = "https://aryairfan-backendbiasa.hf.space";
+    // Menggunakan Environment Variable dari Cloudflare/Lokal .env
+    const API_BASE_URL = PUBLIC_API_URL;
     
-    // 2. Tujuan setelah login sukses (Sesuaikan dengan nama folder admin kamu)
+    // Tujuan setelah login sukses
     const ADMIN_DASHBOARD_URL = "/warung_kopi"; 
 
     // --- STATE VARIABLES ---
@@ -25,7 +26,7 @@
         formData.append('password', password);
 
         try {
-            // FETCH KE SERVER ONLINE
+            // FETCH KE SERVER MENGGUNAKAN PUBLIC_API_URL
             const res = await fetch(`${API_BASE_URL}/auth/token`, {
                 method: "POST",
                 headers: {
@@ -38,14 +39,12 @@
 
             if (res.ok) {
                 // LOGIN SUKSES
-                // 1. Simpan Token & Role di Browser
                 localStorage.setItem("token", data.access_token);
                 localStorage.setItem("role", data.role);
                 
-                // 2. Pindah ke Dashboard Admin
                 goto(ADMIN_DASHBOARD_URL);
             } else {
-                // LOGIN GAGAL (Password salah / Akun tidak ada)
+                // LOGIN GAGAL
                 errorMessage = data.detail || "Login gagal, periksa kembali data Anda.";
             }
         } catch (error) {
@@ -62,9 +61,6 @@
         <h2 class="mt-6 text-center text-3xl font-extrabold text-gray-900">
             Admin Login
         </h2>
-        <!-- <p class="mt-2 text-center text-sm text-gray-600">
-            Hanya untuk personel berwenang
-        </p> -->
     </div>
 
     <div class="mt-8 sm:mx-auto sm:w-full sm:max-w-md">

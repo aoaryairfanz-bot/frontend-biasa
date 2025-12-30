@@ -1,10 +1,12 @@
 // src/routes/katalog/+page.js
+import { PUBLIC_API_URL } from '$env/static/public';
 
 export const load = async ({ fetch, url }) => {
     // Ambil parameter URL untuk filter kategori aktif
     const categoryParam = url.searchParams.get('cat'); 
     
-    const API_URL = "https://aryairfan-backendbiasa.hf.space/products/";
+    // PERBAIKAN: Menggunakan PUBLIC_API_URL dari environment variable
+    const API_URL = `${PUBLIC_API_URL}/products/`;
 
     /**
      * FUNGSI HELPER: Optimasi URL Cloudinary
