@@ -62,7 +62,7 @@
                             src={branch.image_url || `https://placehold.co/600x400/C4161C/FFFFFF?text=${encodeURIComponent(branch.name)}`} 
                             alt={branch.name} 
                             class="w-full h-full object-cover group-hover:scale-105 transition duration-700"
-                            onerror="this.src='https://placehold.co/600x400/eee/999?text=No+Image'"
+                            onerror={(e) => e.target.src = 'https://placehold.co/600x400/eee/999?text=No+Image'}
                         />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent opacity-60"></div>
                         <div class="absolute bottom-3 left-4 text-white">
