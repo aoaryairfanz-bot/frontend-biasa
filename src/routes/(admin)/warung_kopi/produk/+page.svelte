@@ -7,20 +7,14 @@
     import { invalidateAll } from '$app/navigation'; 
     import { PUBLIC_API_URL } from '$env/static/public';
     
-    // --- IMPORT KOMPONEN MODAL (Pastikan file ini sudah dibuat) ---
+    // --- IMPORT KOMPONEN MODAL ---
     import ProductModal from '$lib/components/ProductModal.svelte';
 
-    // --- 1. DATA DARI SERVER ---
+    // --- DATA ---
     let { data } = $props(); 
     let products = $derived(data.products || []); 
 
-    // Dropdown Subkategori (Untuk pass ke modal & filter)
-    let uniqueSubcategories = $derived([...new Set(products.map(p => {
-        const cat = p.subcategory || '';
-        return cat.charAt(0).toUpperCase() + cat.slice(1);
-    }).filter(Boolean))].sort());
-
-    // --- 2. STATE HALAMAN ---
+    // --- STATE HALAMAN ---
     let searchQuery = $state('');
     let activeCategory = $state('all'); 
     let viewMode = $state('grid'); 
@@ -31,12 +25,15 @@
 
     // --- STATE MODAL ---
     let showModal = $state(false);
-    let editingData = $state(null); // Data produk yang sedang diedit
+    let editingData = $state(null); // Data yang mau diedit
 
-    // 3. Gunakan Variable Global
-    const API_BASE = PUBLIC_API_URL;
+    // Hitung Subkategori untuk disetor ke Modal
+    let uniqueSubcategories = $derived([...new Set(products.map(p => {
+        const cat = p.subcategory || '';
+        return cat.charAt(0).toUpperCase() + cat.slice(1);
+    }).filter(Boolean))].sort());
 
-    // --- 3. LOGIC FILTER & PAGINATION ---
+    // --- LOGIKA FILTER ---
     let filteredProducts = $derived(products.filter(p => {
         const matchesSearch = p.name.toLowerCase().includes(searchQuery.toLowerCase()) || 
                               (p.subcategory && p.subcategory.toLowerCase().includes(searchQuery.toLowerCase())) ||
@@ -52,7 +49,7 @@
 
     let totalPages = $derived(Math.ceil(filteredProducts.length / itemsPerPage));
 
-    // --- 4. HELPER FUNCTIONS ---
+    // --- HELPER ---
     function formatRupiah(num) {
         return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num);
     }
@@ -67,7 +64,7 @@
         if (newPage >= 1 && newPage <= totalPages) currentPage = newPage;
     }
 
-    // --- 5. MODAL ACTIONS ---
+    // --- MODAL CONTROLLER ---
     function openAddModal() {
         editingData = null; // Mode Tambah
         showModal = true;
@@ -86,15 +83,15 @@
     async function handleModalSuccess() {
         showModal = false;
         editingData = null;
-        await invalidateAll(); // Refresh data
+        await invalidateAll(); // Refresh data tanpa reload
     }
 
-    // --- 6. PAGE ACTIONS (DELETE & IMPORT) ---
+    // --- ACTIONS LAIN ---
     async function handleDelete(id, name) {
         if (!confirm(`Yakin hapus "${name}"?`)) return;
         const token = localStorage.getItem("token");
         try {
-            const res = await fetch(`${API_BASE}/products/${id}`, {
+            const res = await fetch(`${PUBLIC_API_URL}/products/${id}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
@@ -105,20 +102,17 @@
     async function handleExcelUpload(e) {
         const file = e.target.files[0];
         if (!file) return;
-
         isImporting = true;
         const token = localStorage.getItem("token");
         const dataExcel = new FormData();
         dataExcel.append('file', file); 
-
         try {
-            const res = await fetch(`${API_BASE}/products/import`, {
+            const res = await fetch(`${PUBLIC_API_URL}/products/import`, {
                 method: "POST",
                 headers: { "Authorization": `Bearer ${token}` },
                 body: dataExcel
             });
             const result = await res.json();
-
             if (res.ok) {
                 let msg = `✅ ${result.sukses || "Import Selesai"}\n\n`;
                 if (result.error_log && result.error_log.length > 0) msg += "⚠️ Error:\n" + result.error_log.join("\n");
@@ -127,12 +121,8 @@
             } else {
                 alert("Gagal Import: " + (result.detail || result.error || "Terjadi kesalahan"));
             }
-        } catch (error) {
-            console.error(error); alert("Error koneksi upload Excel.");
-        } finally {
-            isImporting = false;
-            if (excelInput) excelInput.value = ''; 
-        }
+        } catch (error) { alert("Error koneksi upload Excel."); } 
+        finally { isImporting = false; if (excelInput) excelInput.value = ''; }
     }
 </script>
 
@@ -263,7 +253,7 @@
     <ProductModal 
         show={showModal} 
         editData={editingData} 
-        subcategories={uniqueSubcategories}
+        subcategories={uniqueSubcategories} 
         onClose={handleModalClose} 
         onSuccess={handleModalSuccess} 
     />
