@@ -1,12 +1,47 @@
 <script>
-    import { onDestroy } from 'svelte';
-    import { fade } from 'svelte/transition';
+    import { onDestroy, onMount } from 'svelte';
+    import { fade, scale } from 'svelte/transition'; // Tambah scale untuk animasi popup
     import { browser } from '$app/environment';
+    import { XIcon, ShoppingBagIcon } from 'svelte-feather-icons'; // Icon untuk modal
+    import { PUBLIC_API_URL } from '$env/static/public'; // Import URL API
     import kategoriImg from '$lib/assets/kategori.png';
 
     let { data } = $props();
     
     const { banners = [], latestProducts = [], bestSellers = [], bestPromos = [], rawSubcategories = data.subcategories || [] } = data;
+
+    // --- STATE UNTUK MODAL CABANG ---
+    let showBranchModal = $state(false);
+    let selectedProduct = $state(null);
+    let branches = $state([]); // Menyimpan data cabang
+
+    // --- FETCH DATA CABANG SAAT LOAD ---
+    onMount(async () => {
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/branches`);
+            if (res.ok) {
+                const result = await res.json();
+                // Filter hanya cabang aktif & punya nomor WA
+                branches = result.filter(b => b.is_active && b.whatsapp); 
+            }
+        } catch (e) {
+            console.error("Gagal ambil cabang", e);
+        }
+    });
+
+    // --- FUNGSI BUKA MODAL ---
+    function openBuyModal(product) {
+        selectedProduct = product;
+        showBranchModal = true;
+    }
+
+    // --- HELPER WA LINK ---
+    function getBranchWALink(branchPhone) {
+        if (!selectedProduct) return '#';
+        const cleanPhone = branchPhone.replace(/\D/g, '');
+        const message = encodeURIComponent(`Halo, saya ingin memesan produk "${selectedProduct.name}" yang ada di website.`);
+        return `https://wa.me/${cleanPhone}?text=${message}`;
+    }
 
     // --- SEO METADATA DINAMIS ---
     const pageTitle = "Narwastu - Toko Perlengkapan Rohani & Buku Kristiani Terlengkap";
@@ -71,7 +106,7 @@
     <meta name="keywords" content="toko rohani, lilin rohani, rosario, salib kristen, patung yesus, alkitab, narwastu" />
 </svelte:head>
 
-<div class="min-h-screen bg-white font-sans">
+<div class="min-h-screen bg-white font-sans relative">
     
     <h1 class="sr-only">{pageTitle}</h1>
 
@@ -130,7 +165,7 @@
             <div class="container mx-auto px-4 max-w-[1200px]">
                 <div class="flex items-center justify-between mb-6 border-b border-gray-100 pb-2">
                     <h2 class="text-xl font-extrabold text-gray-800">{title}</h2>
-                    <a href={link} class="text-xs font-bold text-yellow-600 hover:text-yellow-700">Lihat Semua {title}</a>
+                    <a href={link} class="text-xs font-bold text-yellow-600 hover:text-yellow-700">Lihat Semua</a>
                 </div>
                 <div class="flex gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide translate-z-0">
                     {#each rowProducts as item (item.id)}
@@ -163,7 +198,7 @@
                                         <span class="text-[10px] text-gray-400 line-through leading-none">{formatRupiah(item.strike_price)}</span>
                                     {/if}
                                 </div>
-                                <button class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2.5 rounded-lg transition-all active:scale-95 uppercase tracking-tighter">
+                                <button onclick={() => openBuyModal(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2.5 rounded-lg transition-all active:scale-95 uppercase tracking-tighter">
                                     Beli Sekarang
                                 </button>
                             </div>
@@ -177,6 +212,51 @@
     {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
     {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
     {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
+
+    {#if showBranchModal}
+        <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm" transition:fade={{duration: 200}}>
+            <div class="bg-white w-[95%] md:w-full md:max-w-2xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]" transition:scale={{duration: 200, start: 0.95}}>
+                
+                <div class="flex justify-between items-center p-4 border-b border-gray-100 bg-gray-50">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800 leading-tight">Pilih Cabang</h3>
+                        <p class="text-[10px] text-gray-500 mt-0.5">Order: <span class="font-bold text-[#C4161C]">{selectedProduct?.name}</span></p>
+                    </div>
+                    <button onclick={() => showBranchModal = false} class="p-2 text-gray-400 hover:text-red-500 hover:bg-red-50 rounded-full transition-colors">
+                        <XIcon size="20" />
+                    </button>
+                </div>
+
+                <div class="p-4 overflow-y-auto custom-scrollbar bg-white">
+                    {#if branches.length === 0}
+                        <div class="text-center py-8 text-gray-400">
+                            <ShoppingBagIcon size="32" class="mx-auto mb-2 opacity-50"/>
+                            <p class="text-xs">Memuat data cabang...</p>
+                        </div>
+                    {:else}
+                        <div class="grid grid-cols-2 md:grid-cols-3 gap-2">
+                            {#each branches as branch}
+                                <a 
+                                    href={getBranchWALink(branch.whatsapp)} 
+                                    target="_blank"
+                                    class="flex items-center justify-center text-center px-2 py-3 rounded-lg border border-gray-200 hover:border-[#C4161C] hover:bg-red-50 hover:text-[#C4161C] transition-all duration-200 group"
+                                >
+                                    <span class="text-xs font-bold text-gray-700 group-hover:text-[#C4161C] truncate w-full">
+                                        {branch.name.replace('Cabang ', '').replace('Narwastu ', '')}
+                                    </span>
+                                </a>
+                            {/each}
+                        </div>
+                    {/if}
+                </div>
+
+                <div class="p-3 bg-gray-50 border-t border-gray-100 text-center">
+                    <p class="text-[10px] text-gray-400">Pilih cabang terdekat untuk ongkir lebih murah</p>
+                </div>
+            </div>
+        </div>
+    {/if}
+
 </div>
 
 <style>
