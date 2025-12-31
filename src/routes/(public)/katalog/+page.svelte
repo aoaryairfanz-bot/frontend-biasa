@@ -1,27 +1,48 @@
 <script>
+    import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import { page } from '$app/stores'; 
 
     let { data } = $props();
-    // Gunakan data.products langsung, fallback ke array kosong
-    const products = data.products || [];
 
-    // --- OPTIMASI 1: Konstanta filter statis ---
+    // --- STATE DATA PRODUK (Default Array Kosong) ---
+    let products = $state([]);
+
+    // --- OPTIMASI 1: Caching & Session Storage ---
+    onMount(() => {
+        // 1. Cek apakah ada data tersimpan di Session Storage?
+        const cachedData = sessionStorage.getItem('katalog_products');
+        
+        if (cachedData) {
+            // Jika ada, pakai data dari cache dulu (INSTANT LOAD)
+            products = JSON.parse(cachedData);
+        }
+
+        // 2. Jika ada data baru dari Server (Props), Update Cache & Tampilan
+        if (data.products && data.products.length > 0) {
+            products = data.products;
+            // Simpan data terbaru ke Session Storage
+            sessionStorage.setItem('katalog_products', JSON.stringify(data.products));
+        }
+    });
+
+    // --- OPTIMASI 2: Konstanta filter statis ---
     const NON_BOOK_KEYWORDS = ['lilin', 'salib', 'rosario', 'gelang', 'kalung', 'patung', 'tempat lilin', 'goa', 'perjamuan', 'hosti', 'anggur', 'piala', 'kain', 'kotak', 'alas', 'dw0', 'kcb'];
     const BOOK_KEYWORDS = ['alkitab', 'book', 'buku', 'kitab', 'injil', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah'];
 
-    // --- OPTIMASI 2: Formatter & Gambar ---
+    // --- OPTIMASI 3: Formatter & Gambar Super Kecil ---
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco -> Kualitas Ekonomi (Sangat Ringan)
-        // f_auto -> Format WebP/AVIF
+        // q_auto:eco -> Kompresi maksimal (hemat kuota)
+        // f_auto -> Format otomatis (WebP)
+        // w_200 -> Lebar cuma 200px (Sangat ringan untuk HP)
         return url.replace("/upload/", `/upload/q_auto:eco,f_auto,w_${width}/`);
     };
 
-    // --- STATE ---
+    // --- STATE UI ---
     let filter = $state('all');
     let currentPage = $state(1);
     const itemsPerPage = 15;
@@ -35,11 +56,13 @@
     // --- SEARCH ---
     let searchTerm = $derived($page.url.searchParams.get('search')?.toLowerCase() || "");
 
-    // --- FILTERING (Efisien) ---
+    // --- FILTERING ---
     let allFilteredProducts = $derived.by(() => {
+        // Jika products belum dimuat, return kosong
+        if (!products.length) return [];
+
         let result = products;
 
-        // 1. Filter Search (Jika ada)
         if (searchTerm) {
             result = result.filter(p => 
                 p.name?.toLowerCase().includes(searchTerm) || 
@@ -47,14 +70,12 @@
             );
         }
 
-        // 2. Filter Kategori (Jika bukan 'all')
         if (filter !== 'all') {
             result = result.filter(item => {
                 const text = (item.name + " " + (item.slug || "")).toLowerCase();
                 const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw));
                 
                 if (filter === 'book') return isBook;
-                // nonbook: yang PENTING BUKAN buku, ATAU yang mengandung keyword rohani
                 return !isBook || NON_BOOK_KEYWORDS.some(kw => text.includes(kw));
             });
         }
@@ -73,13 +94,15 @@
     function changeCategory(id) {
         filter = id;
         currentPage = 1;
-        window.scrollTo({ top: 0, behavior: 'smooth' }); // Smooth scroll saat ganti kategori
+        // Scroll smooth ke atas
+        window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
 
     function changePage(newPage) {
         if (newPage >= 1 && newPage <= totalPages) {
             currentPage = newPage;
-            window.scrollTo({ top: 0, behavior: 'instant' }); // Instant scroll saat ganti halaman
+            // Scroll langsung (instant) agar cepat
+            window.scrollTo({ top: 0, behavior: 'instant' }); 
         }
     }
 
@@ -91,7 +114,7 @@
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8">
     
-    <div class="container mx-auto px-4 max-w-[1200px] mb-6 md:mb-8 sticky top-16 z-30 bg-white/95 backdrop-blur-sm py-2">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-6 md:mb-8 bg-white py-2">
         <div class="flex justify-center border-b border-gray-200">
             <div class="flex gap-4 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2">
                 {#each filterOptions as opt}
@@ -134,10 +157,11 @@
                                 <div class="absolute top-0 left-0 bg-[#C4161C] text-white text-[9px] font-bold px-2 py-1 z-10 rounded-br-lg">-{diskon}%</div>
                             {/if}
                             <img 
-                                src={optimizeUrl(item.image_1_url, 250)} 
+                                src={optimizeUrl(item.image_1_url, 200)} 
                                 alt={item.name} 
                                 loading="lazy" 
                                 decoding="async" 
+                                width="200" height="267"
                                 class="w-full h-full object-contain p-3 group-hover:scale-105 transition duration-500" 
                             />
                         </div>
