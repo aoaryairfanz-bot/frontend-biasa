@@ -1,7 +1,8 @@
 <script>
     import { onMount } from 'svelte';
-    import { fade, scale } from 'svelte/transition'; 
+    import { fly } from 'svelte/transition'; // Ganti fade jadi fly untuk efek geser
     import { browser } from '$app/environment';
+    import { page } from '$app/stores'; // Untuk ambil URL website
     import { XIcon, ShoppingBagIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
@@ -16,16 +17,17 @@
     let branches = $state([]); 
     let currentIndex = $state(0);
 
-    // --- OPTIMASI GAMBAR (PENTING UNTUK SPEED HP) ---
+    // Ambil 5 Banner Terbaru Saja
+    const displayBanners = $derived(banners.slice(0, 5));
+
+    // --- OPTIMASI GAMBAR MAXIMAL ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // f_auto: format webp/avif otomatis
-        // q_auto: kualitas otomatis (kompresi cerdas)
-        // w_{width}: resize di server
-        return url.replace("/upload/", `/upload/f_auto,q_auto,w_${width}/`);
+        // q_auto:eco -> Kompresi lebih agresif tapi visual tetap bagus (Hemat data)
+        return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
-    // --- FETCH DATA CABANG (Di Background) ---
+    // --- FETCH DATA CABANG ---
     onMount(async () => {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches`);
@@ -38,13 +40,12 @@
         }
     });
 
-    // --- BANNER AUTO PLAY (Hemat Resource) ---
-    if (browser && banners.length > 1) {
+    // --- BANNER SLIDE AUTO ---
+    if (browser && displayBanners.length > 1) {
         $effect(() => {
             const timer = setInterval(() => {
-                currentIndex = (currentIndex + 1) % banners.length;
+                currentIndex = (currentIndex + 1) % displayBanners.length;
             }, 5000);
-            // Cleanup function wajib agar tidak memory leak
             return () => clearInterval(timer);
         });
     }
@@ -58,12 +59,16 @@
     function getBranchWALink(branchPhone) {
         if (!selectedProduct) return '#';
         const cleanPhone = branchPhone.replace(/\D/g, '');
-        const message = encodeURIComponent(`Halo, saya ingin memesan produk "${selectedProduct.name}" yang ada di website.`);
-        return `https://wa.me/${cleanPhone}?text=${message}`;
+        
+        // Buat Link Produk agar muncul gambarnya di WA (Link Preview)
+        const productLink = `${$page.url.origin}/produk/${selectedProduct.slug}`;
+        
+        const text = `Halo, saya tertarik dengan produk ini:\n${productLink}\n\nNama: ${selectedProduct.name}\nMohon infonya.`;
+        return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     }
 
-    // --- CONSTANTS ---
-    const pageTitle = "Narwastu - Toko Perlengkapan Rohani & Buku Kristiani Terlengkap";
+    // --- CONSTANTS & HELPERS ---
+    const pageTitle = "Narwastu - Toko Perlengkapan Rohani & Buku Kristiani";
     const subcategories = $derived.by(() => {
         const unique = new Set();
         for (const s of rawSubcategories) {
@@ -96,7 +101,7 @@
 
 <svelte:head>
     <title>{pageTitle}</title>
-    <meta name="description" content="Temukan berbagai lilin rohani, rosario, salib, patung kudus, dan buku Alkitab berkualitas di Narwastu." />
+    <meta name="description" content="Toko Rohani Narwastu terlengkap." />
 </svelte:head>
 
 <div class="min-h-screen bg-white font-sans relative">
@@ -104,28 +109,33 @@
 
     <section class="w-full mb-8 mt-4" aria-label="Promo Utama">
         <div class="container mx-auto px-4">
-            <div class="relative w-full aspect-[2/1] md:h-[380px] md:aspect-auto rounded-2xl overflow-hidden shadow-sm bg-gray-100 mx-auto max-w-[1200px]">
-                {#if banners.length > 0}
-                    {#each banners as banner, i}
+            <div class="relative w-full aspect-[2.5/1] rounded-2xl overflow-hidden shadow-sm bg-gray-100 mx-auto max-w-[1200px]">
+                {#if displayBanners.length > 0}
+                    {#each displayBanners as banner, i}
                         {#if i === currentIndex}
-                            <img 
-                                srcset="{optimizeUrl(banner.image_url, 480)} 480w, 
-                                        {optimizeUrl(banner.image_url, 800)} 800w, 
-                                        {optimizeUrl(banner.image_url, 1200)} 1200w"
-                                sizes="(max-width: 600px) 480px, (max-width: 1000px) 800px, 1200px"
-                                src={optimizeUrl(banner.image_url, 1200)} 
-                                alt={banner.title || 'Promo Narwastu'} 
-                                in:fade={{ duration: 300 }} 
-                                class="absolute inset-0 w-full h-full object-cover" 
-                                fetchpriority={i === 0 ? "high" : "low"}
-                                loading={i === 0 ? "eager" : "lazy"}
-                                decoding="async"
-                            />
+                            <div 
+                                in:fly={{ x: 300, duration: 400 }} 
+                                out:fly={{ x: -300, duration: 400 }} 
+                                class="absolute inset-0 w-full h-full"
+                            >
+                                <img 
+                                    srcset="{optimizeUrl(banner.image_url, 480)} 480w, 
+                                            {optimizeUrl(banner.image_url, 800)} 800w, 
+                                            {optimizeUrl(banner.image_url, 1200)} 1200w"
+                                    sizes="(max-width: 600px) 480px, (max-width: 1000px) 800px, 1200px"
+                                    src={optimizeUrl(banner.image_url, 1200)} 
+                                    alt={banner.title || 'Promo'} 
+                                    class="w-full h-full object-cover" 
+                                    fetchpriority={i === 0 ? "high" : "low"}
+                                    loading={i === 0 ? "eager" : "lazy"}
+                                    decoding="async"
+                                />
+                            </div>
                         {/if}
                     {/each}
                     <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
-                        {#each banners as _, i}
-                            <div class="h-1.5 rounded-full transition-all duration-500 {i === currentIndex ? 'bg-white w-5' : 'bg-white/60 w-1.5'}"></div>
+                        {#each displayBanners as _, i}
+                            <div class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-5' : 'bg-white/60 w-1.5'}"></div>
                         {/each}
                     </div>
                 {/if}
@@ -133,7 +143,7 @@
         </div>
     </section>
 
-    <nav class="w-full mb-10" aria-label="Kategori Produk">
+    <nav class="w-full mb-8" aria-label="Kategori">
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="flex gap-4 overflow-x-auto pb-4 px-1 snap-x scrollbar-hide justify-start md:justify-center">
                 {#each subcategories as sub}
@@ -143,8 +153,7 @@
                                 src={getSubIcon(sub)} 
                                 alt={sub} 
                                 class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" 
-                                loading="lazy" 
-                                width="36" height="36"
+                                loading="lazy" width="36" height="36"
                             />
                         </div>
                         <span class="text-[9px] md:text-[10px] font-bold text-gray-500 text-center leading-tight line-clamp-2 w-full uppercase tracking-tighter">
@@ -157,7 +166,7 @@
     </nav>
 
     {#snippet productRow(title, rowProducts, badgeText, badgeColor, link)}
-        <section class="mb-12" aria-label={title}>
+        <section class="mb-10" aria-label={title}>
             <div class="container mx-auto px-4 max-w-[1200px]">
                 <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
                     <h2 class="text-lg md:text-xl font-extrabold text-gray-800">{title}</h2>
@@ -171,8 +180,7 @@
                                     <img 
                                         src={optimizeUrl(item.image_1_url, 250)} 
                                         alt={item.name} 
-                                        loading="lazy" 
-                                        decoding="async" 
+                                        loading="lazy" decoding="async" 
                                         width="150" height="200"
                                         class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
                                     />
@@ -208,8 +216,8 @@
     {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
 
     {#if showBranchModal}
-        <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm" transition:fade={{duration: 150}}>
-            <div class="bg-white w-[95%] md:w-full md:max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]" transition:scale={{duration: 200, start: 0.95}}>
+        <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
+            <div class="bg-white w-[95%] md:w-full md:max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
                 
                 <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div>
@@ -246,11 +254,9 @@
             </div>
         </div>
     {/if}
-
 </div>
 
 <style>
-    /* Utility agar scrollbar tidak mengganggu visual tapi tetap bisa di-scroll */
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
