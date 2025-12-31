@@ -20,10 +20,11 @@
     // Ambil 5 Banner Terbaru Saja
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // --- OPTIMASI GAMBAR (HP Friendly) ---
+    // --- OPTIMASI GAMBAR MAXIMAL (Performance Score 90+) ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco -> Kompresi hemat data, performa tinggi
+        // q_auto:eco = Kompresi agresif tapi visual bagus (Sangat ringan di HP)
+        // f_auto = Format otomatis (WebP/AVIF)
         return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
@@ -59,6 +60,7 @@
     function getBranchWALink(branchPhone) {
         if (!selectedProduct) return '#';
         const cleanPhone = branchPhone.replace(/\D/g, '');
+        // Menyertakan Link Produk agar muncul Preview Gambar di WA
         const productLink = `${$page.url.origin}/produk/${selectedProduct.slug}`;
         const text = `Halo, saya tertarik dengan produk ini:\n${productLink}\n\nNama: ${selectedProduct.name}\nMohon infonya.`;
         return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
@@ -102,7 +104,16 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
+
+    <link 
+        rel="preload" 
+        as="style" 
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" 
+        onload="this.onload=null;this.rel='stylesheet'"
+    >
+    <noscript>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap">
+    </noscript>
 </svelte:head>
 
 <div class="min-h-screen bg-white font-sans relative">
