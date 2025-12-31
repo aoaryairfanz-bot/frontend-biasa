@@ -20,10 +20,12 @@
     // Ambil 5 Banner Terbaru Saja
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // --- OPTIMASI GAMBAR (HP Friendly) ---
+    // --- OPTIMASI GAMBAR SUPER HEMAT (ECO MODE) ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco -> Kompresi hemat data, performa tinggi
+        // q_auto:eco = Kualitas Ekonomi (Sangat kecil KB-nya)
+        // f_auto = Format WebP/AVIF (Lebih kecil dari JPG/PNG)
+        // w_{width} = Resize server-side sesuai ukuran tampilan
         return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
@@ -56,13 +58,14 @@
         showBranchModal = true;
     }
 
+    // --- FORMAT LINK WHATSAPP SESUAI REQUEST ---
     function getBranchWALink(branchName, branchPhone) {
         if (!selectedProduct) return '#';
         
         const cleanPhone = branchPhone.replace(/\D/g, '');
         const sku = selectedProduct.sku || '-';
         
-        // FORMAT PESAN WA YANG BAGINDA MINTA:
+        // Format Pesan Khusus
         const text = `Hallo "${branchName}"\nSaya Ingin Pesan "${selectedProduct.name}"\nSKU: "${sku}"\nBisa di proses secepatnya?`;
         
         return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
