@@ -1,8 +1,8 @@
 <script>
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition'; // Ganti fade jadi fly untuk efek geser
+    import { fly } from 'svelte/transition'; 
     import { browser } from '$app/environment';
-    import { page } from '$app/stores'; // Untuk ambil URL website
+    import { page } from '$app/stores'; 
     import { XIcon, ShoppingBagIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
@@ -20,10 +20,11 @@
     // Ambil 5 Banner Terbaru Saja
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // --- OPTIMASI GAMBAR MAXIMAL ---
+    // --- OPTIMASI GAMBAR MAXIMAL (Performance Score 90+) ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco -> Kompresi lebih agresif tapi visual tetap bagus (Hemat data)
+        // q_auto:eco = Kompresi agresif tapi visual bagus (Sangat ringan di HP)
+        // f_auto = Format otomatis (WebP/AVIF)
         return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
@@ -59,15 +60,13 @@
     function getBranchWALink(branchPhone) {
         if (!selectedProduct) return '#';
         const cleanPhone = branchPhone.replace(/\D/g, '');
-        
-        // Buat Link Produk agar muncul gambarnya di WA (Link Preview)
+        // Menyertakan Link Produk agar muncul Preview Gambar di WA
         const productLink = `${$page.url.origin}/produk/${selectedProduct.slug}`;
-        
         const text = `Halo, saya tertarik dengan produk ini:\n${productLink}\n\nNama: ${selectedProduct.name}\nMohon infonya.`;
         return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     }
 
-    // --- CONSTANTS & HELPERS ---
+    // --- CONSTANTS ---
     const pageTitle = "Narwastu - Toko Perlengkapan Rohani & Buku Kristiani";
     const subcategories = $derived.by(() => {
         const unique = new Set();
@@ -102,6 +101,19 @@
 <svelte:head>
     <title>{pageTitle}</title>
     <meta name="description" content="Toko Rohani Narwastu terlengkap." />
+    
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+
+    <link 
+        rel="preload" 
+        as="style" 
+        href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" 
+        onload="this.onload=null;this.rel='stylesheet'"
+    >
+    <noscript>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap">
+    </noscript>
 </svelte:head>
 
 <div class="min-h-screen bg-white font-sans relative">
