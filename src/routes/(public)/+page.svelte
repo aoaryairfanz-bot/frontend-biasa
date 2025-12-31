@@ -9,7 +9,6 @@
 
     let { data } = $props();
     
-    // Ambil data dari server (SSR)
     const { banners = [], latestProducts = [], bestSellers = [], bestPromos = [], rawSubcategories = data.subcategories || [] } = data;
 
     // --- STATE ---
@@ -18,21 +17,19 @@
     let branches = $state([]); 
     let currentIndex = $state(0);
 
-    // Ambil 5 Banner Terbaru
+    // Ambil 5 Banner Terbaru Saja
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // --- OPTIMASI GAMBAR (Fungsi ini kita pakai juga di HEAD untuk Preload) ---
+    // --- OPTIMASI GAMBAR SUPER HEMAT (ECO MODE) ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco = Kualitas Ekonomi (Sangat kecil KB, LCP Ngebut)
+        // q_auto:eco = Kualitas Ekonomi (Sangat kecil KB-nya)
+        // f_auto = Format WebP/AVIF (Lebih kecil dari JPG/PNG)
+        // w_{width} = Resize server-side sesuai ukuran tampilan
         return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
-    // Helper untuk Banner Pertama (LCP Candidate)
-    const firstBannerUrl = displayBanners.length > 0 ? optimizeUrl(displayBanners[0].image_url, 480) : null;
-    const firstBannerUrlDesktop = displayBanners.length > 0 ? optimizeUrl(displayBanners[0].image_url, 1200) : null;
-
-    // --- FETCH DATA CABANG (Client Side - Tidak Blokir LCP) ---
+    // --- FETCH DATA CABANG ---
     onMount(async () => {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches`);
@@ -45,7 +42,7 @@
         }
     });
 
-    // --- BANNER SLIDE ---
+    // --- BANNER SLIDE AUTO ---
     if (browser && displayBanners.length > 1) {
         $effect(() => {
             const timer = setInterval(() => {
@@ -61,15 +58,20 @@
         showBranchModal = true;
     }
 
+    // --- FORMAT LINK WHATSAPP SESUAI REQUEST ---
     function getBranchWALink(branchName, branchPhone) {
         if (!selectedProduct) return '#';
+        
         const cleanPhone = branchPhone.replace(/\D/g, '');
         const sku = selectedProduct.sku || '-';
+        
+        // Format Pesan Khusus
         const text = `Hallo "${branchName}"\nSaya Ingin Pesan "${selectedProduct.name}"\nSKU: "${sku}"\nBisa di proses secepatnya?`;
+        
         return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
     }
 
-    // --- UTILS ---
+    // --- CONSTANTS ---
     const pageTitle = "Narwastu - Toko Perlengkapan Rohani & Buku Kristiani";
     const subcategories = $derived.by(() => {
         const unique = new Set();
@@ -107,14 +109,7 @@
     
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-
-    <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap">
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap">
-
-    {#if firstBannerUrl}
-        <link rel="preload" as="image" href={firstBannerUrl} media="(max-width: 600px)">
-        <link rel="preload" as="image" href={firstBannerUrlDesktop} media="(min-width: 601px)">
-    {/if}
+    <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">
 </svelte:head>
 
 <div class="min-h-screen bg-white font-sans relative">
@@ -146,7 +141,6 @@
                             </div>
                         {/if}
                     {/each}
-                    
                     <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
                         {#each displayBanners as _, i}
                             <div class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-5' : 'bg-white/60 w-1.5'}"></div>
