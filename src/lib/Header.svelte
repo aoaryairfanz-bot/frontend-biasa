@@ -24,23 +24,24 @@
         { label: 'Bantuan', link: '/bantuan', icon: HelpCircleIcon }
     ];
 
-    // Optimasi Logo Narwastu (Kecil & Ringan)
-    // h_60 = Tinggi 60px (Cukup untuk retina display)
-    // q_auto:eco = Kompresi agresif
-    // f_auto = Format WebP otomatis
-    const logoUrl = "https://res.cloudinary.com/dqyztrelw/image/upload/h_60,q_auto:eco,f_auto/v1766051198/favicon_jgz09p.png";
+    // OPTIMASI LOGO EXTREME
+    // w_64: Lebar 64px (Cukup untuk tampilan 32px di layar retina)
+    // q_auto:eco: Kompresi kualitas ekonomi (sangat kecil KB)
+    // f_auto: Format otomatis (WebP/AVIF)
+    const logoUrl = "https://res.cloudinary.com/dqyztrelw/image/upload/w_64,q_auto:eco,f_auto/v1766051198/favicon_jgz09p.png";
 </script>
 
 <header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 font-sans">
     <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 md:gap-4">
         
-        <a href="/" class="flex items-center gap-2 flex-shrink-0 group">
-            <div class="relative">
+        <a href="/" class="flex items-center gap-2 flex-shrink-0 group" aria-label="Homepage">
+            <div class="relative w-6 h-6 md:w-8 md:h-8">
                 <img 
                     src={logoUrl} 
                     alt="Narwastu Logo" 
-                    width="32" height="32"
-                    class="h-5 w-auto md:h-7 transition-transform duration-500 group-hover:scale-105" 
+                    width="32" 
+                    height="32"
+                    class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
                 />
             </div>
             
@@ -60,10 +61,11 @@
                     onkeydown={handleKeyDown}
                     placeholder="Cari..." 
                     class="w-full bg-gray-50 text-gray-700 text-xs md:text-sm py-2 px-4 pl-4 pr-9 border border-transparent focus:outline-none focus:ring-1 focus:ring-[#C4161C]/20 focus:border-[#C4161C] focus:bg-white transition-all duration-300 rounded-lg"
+                    aria-label="Kolom Pencarian"
                 />
                 <button 
                     onclick={handleSearch}
-                    aria-label="Cari"
+                    aria-label="Tombol Cari"
                     class="absolute right-1 top-1/2 transform -translate-y-1/2 p-1.5 bg-[#C4161C] text-white hover:bg-[#a51318] transition shadow-sm active:scale-90 rounded-md"
                 >
                     <SearchIcon size="14" />
@@ -99,7 +101,7 @@
 <div class="md:hidden fixed bottom-4 left-4 right-4 bg-white/90 backdrop-blur-lg border border-gray-100 px-6 py-3 z-50 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
     <div class="flex justify-between items-center">
         {#each mobileMenus as menu}
-            <a href={menu.link} class="flex flex-col items-center gap-1 group transition-all duration-300">
+            <a href={menu.link} class="flex flex-col items-center gap-1 group transition-all duration-300" aria-label={menu.label}>
                 <div class="p-1 transition-transform duration-300 group-active:scale-75 {($page.url.pathname === menu.link || ($page.url.pathname.startsWith(menu.link) && menu.link !== '/')) ? 'text-[#C4161C]' : 'text-gray-400'}">
                     <menu.icon size="20" />
                 </div>
