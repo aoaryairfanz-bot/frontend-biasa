@@ -1,12 +1,18 @@
 <script>
-    import { fade, slide } from 'svelte/transition';
+    import { onMount } from 'svelte';
+    import { fade } from 'svelte/transition';
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
 
     let { data } = $props();
-    let product = $derived(data.product);
+    
+    // Ambil slug dari data yang dikirim oleh +page.js
+    let slug = $derived(data.slug);
 
     // --- STATE ---
+    let product = $state(null); // Produk utama (diisi via fetch)
+    let isLoading = $state(true); // Loading state utama
+    
     let relatedProducts = $state([]);       
     let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
@@ -24,40 +30,59 @@
     let activeIndex = $state(0); 
     let sliderRef; 
 
+    // Media list dihitung setelah product ada
     let mediaList = $derived.by(() => {
-        let list = [product?.image_1_url, product?.image_2_url, product?.image_3_url].filter(Boolean);
-        if (product?.video_url) list.push(product.video_url);
+        if (!product) return [];
+        let list = [product.image_1_url, product.image_2_url, product.image_3_url].filter(Boolean);
+        if (product.video_url) list.push(product.video_url);
         return list;
     });
 
-    // --- EFFECT ---
+    // --- EFFECT: Jalankan saat slug berubah ---
     $effect(() => {
-        if (product) {
-            activeIndex = 0;
-            if (sliderRef) scrollTo(0);
-            isDescriptionExpanded = false;
-            window.scrollTo({ top: 0, behavior: 'instant' }); 
-            loadRelatedProducts();
-            loadBranches(); 
+        if (slug) {
+            loadProductDetail(); // 1. Load Produk Utama
         }
     });
 
-    // --- LOGIC CABANG ---
+    // --- 1. LOAD PRODUK UTAMA (PENTING) ---
+    async function loadProductDetail() {
+        isLoading = true;
+        try {
+            // Fetch detail produk berdasarkan slug
+            const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
+            if (res.ok) {
+                const raw = await res.json();
+                product = raw;
+                
+                // Setelah produk dapat, load data pendukung
+                loadBranches();
+                loadRelatedProducts();
+                
+                // Reset UI scroll
+                activeIndex = 0;
+                window.scrollTo({ top: 0, behavior: 'instant' });
+            } else {
+                console.error("Produk tidak ditemukan");
+            }
+        } catch (e) {
+            console.error("Gagal load produk:", e);
+        } finally {
+            isLoading = false;
+        }
+    }
+
+    // --- 2. LOAD CABANG ---
     async function loadBranches() {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
                 const raw = await res.json();
-                let list = [];
-                if (Array.isArray(raw)) list = raw;
-                else if (raw.data) list = raw.data;
-                
+                let list = Array.isArray(raw) ? raw : (raw.data || []);
                 branchList = list;
                 if (branchList.length > 0) selectedBranch = branchList[0];
             }
-        } catch (error) {
-            console.error("Gagal ambil cabang:", error);
-        }
+        } catch (error) { console.error(error); }
     }
 
     function selectBranch(branch) {
@@ -65,8 +90,23 @@
         showBranchModal = false; 
     }
 
-    // --- LOGIC TRANSAKSI WHATSAPP ---
+    // --- 3. LOAD RELATED ---
+    async function loadRelatedProducts() {
+        isLoadingRelated = true;
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/products/`); 
+            if (res.ok) {
+                const allProducts = await res.json();
+                // Filter produk lain (bukan produk yg sedang dilihat)
+                let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
+                relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
+            }
+        } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
+    }
+
+    // --- UTILS ---
     function cleanPhoneNumber(phone) {
+        if (!phone) return "";
         let clean = phone.replace(/\D/g, ''); 
         if (clean.startsWith('0')) clean = '62' + clean.slice(1);
         return clean;
@@ -85,37 +125,31 @@
             `Saya Ingin Pesan "${product.name}"\n` +
             `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
             `Bisa diproses secepatnya?`;
-        const encodedPesan = encodeURIComponent(pesan);
-        window.open(`https://wa.me/${phone}?text=${encodedPesan}`, '_blank');
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
 
-    // --- LOGIC LAINNYA ---
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
         const scrollAmount = sliderRef.offsetWidth * index;
         sliderRef.scrollTo({ left: scrollAmount, behavior: 'smooth' });
     }
+    
     function handleScroll() {
         if (!sliderRef) return;
         const newIndex = Math.round(sliderRef.scrollLeft / sliderRef.offsetWidth);
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
     }
-    async function loadRelatedProducts() {
-        isLoadingRelated = true;
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/`); 
-            const allProducts = await res.json();
-            relatedProducts = allProducts.filter(p => p.slug !== product.slug).slice(0, 6); 
-        } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
-    }
+
     function optimizeCloudinary(url, width = 'auto') {
         if (!url || !url.includes('cloudinary.com')) return url;
         return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
     }
+    
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
+    
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
         if (!p && !l && !t) return null;
@@ -125,11 +159,7 @@
 
 <svelte:head>
     <meta property="og:image" content={product?.image_1_url} />
-    <meta property="og:title" content={product ? product.name : 'Narwastu - Toko Kristiani'} />
-    <meta property="og:description" content="Pesan produk rohani terbaik di Narwastu" />
-    <meta property="og:url" content={$page.url.href} />
-    <meta property="og:type" content="product" />
-    <title>{product ? product.name : 'Narwastu - Toko Kristiani'}</title>
+    <title>{product ? product.name : 'Memuat...'} - Narwastu</title>
 </svelte:head>
 
 <style>
@@ -138,14 +168,14 @@
     img, video { content-visibility: auto; }
 </style>
 
-{#key $page.url.pathname}
 <div class="min-h-screen bg-white pb-32 font-sans text-gray-800">
+    
     {#if product}
-        <div class="border-b border-gray-100 mb-4 bg-white">
-            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate">
-                <a href="/" class="hover:text-[#C4161C]">Home</a> <span class="mx-1">/</span> 
-                <a href="/katalog" class="hover:text-[#C4161C]">Katalog</a> <span class="mx-1">/</span> 
-                <span class="text-gray-900">{product.name}</span>
+        <div class="border-b border-gray-100 mb-4 bg-white sticky top-0 z-20">
+            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate flex items-center">
+                <button onclick={() => history.back()} class="mr-3 text-gray-800 hover:text-[#C4161C] font-bold">❮ KEMBALI</button>
+                <span class="mx-1">/</span> 
+                <span class="text-gray-900 truncate">{product.name}</span>
             </div>
         </div>
 
@@ -272,8 +302,18 @@
         <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-3 z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
             <button onclick={handleBeli} class="w-full bg-[#C4161C] active:scale-95 transition-transform text-white font-bold py-3.5 rounded-lg text-sm shadow-md uppercase tracking-wide">Beli Sekarang</button>
         </div>
+    
     {:else}
-        <div class="text-center py-20 font-bold text-gray-400 uppercase tracking-widest animate-pulse text-xs">Memuat Produk...</div>
+        <div class="container mx-auto px-4 max-w-7xl pt-10">
+            <div class="flex flex-col md:flex-row gap-8 animate-pulse">
+                <div class="w-full md:w-[384px] aspect-square bg-gray-200 rounded-lg"></div>
+                <div class="flex-1 space-y-4">
+                    <div class="h-8 bg-gray-200 rounded w-3/4"></div>
+                    <div class="h-6 bg-gray-200 rounded w-1/4"></div>
+                    <div class="h-32 bg-gray-200 rounded w-full mt-6"></div>
+                </div>
+            </div>
+        </div>
     {/if}
 
     {#if showBranchModal}
@@ -295,4 +335,3 @@
     </div>
     {/if}
 </div>
-{/key}
