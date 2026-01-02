@@ -37,6 +37,7 @@
         "vite": "^6.0.7"
     },
     "dependencies": {
+        "@fontsource/cinzel": "^5.2.8",
         "browser-image-compression": "^2.0.2",
         "nprogress": "^0.2.0",
         "svelte-feather-icons": "^4.2.0"
