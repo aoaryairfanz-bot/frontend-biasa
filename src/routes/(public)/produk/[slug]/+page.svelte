@@ -1,5 +1,4 @@
 <script>
-    import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -35,20 +34,48 @@
         return list;
     });
 
+    // --- EFFECT: DETEKSI PERUBAHAN SLUG ---
     $effect(() => {
-        if (slug) loadProductDetail();
+        if (slug) {
+            // STEP 1: RESET STATE AGAR PRODUK LAMA HILANG (PENTING!)
+            product = null; 
+            isLoading = true;
+            activeIndex = 0;
+            
+            // STEP 2: LOAD DATA BARU
+            loadProductDetail();
+        }
     });
 
+    // --- LOAD DATA UTAMA (DENGAN CACHE) ---
     async function loadProductDetail() {
-        isLoading = true;
+        const CACHE_KEY = `product_${slug}`;
+
         try {
+            // 1. Cek Cache Session Storage
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                product = JSON.parse(cached);
+                isLoading = false;
+                // Load data pendukung di background
+                loadBranches();
+                loadRelatedProducts();
+                window.scrollTo({ top: 0, behavior: 'instant' });
+                return; // Stop, pakai data cache saja biar ngebut
+            }
+
+            // 2. Jika tidak ada cache, Fetch API
             const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
             if (res.ok) {
                 const raw = await res.json();
                 product = raw;
+                
+                // Simpan ke Cache
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify(raw));
+                
+                // Load pendukung
                 loadBranches();
                 loadRelatedProducts();
-                activeIndex = 0;
                 window.scrollTo({ top: 0, behavior: 'instant' });
             }
         } catch (e) { console.error(e); } 
@@ -67,11 +94,6 @@
         } catch (error) { console.error(error); }
     }
 
-    function selectBranch(branch) {
-        selectedBranch = branch;
-        showBranchModal = false; 
-    }
-
     async function loadRelatedProducts() {
         isLoadingRelated = true;
         try {
@@ -79,45 +101,34 @@
             if (res.ok) {
                 const allProducts = await res.json();
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
+                // Filter produk lain
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
         } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
     }
 
-    // --- UTILS ---
-    function cleanPhoneNumber(phone) {
-        if (!phone) return "";
-        let clean = phone.replace(/\D/g, ''); 
-        if (clean.startsWith('0')) clean = '62' + clean.slice(1);
-        return clean;
-    }
-
-    // --- FITUR WA (DIPERBAIKI) ---
+    // --- WA BUTTON ---
     function handleBeli() {
         if (!selectedBranch || !selectedBranch.whatsapp) {
             showBranchModal = true;
             return;
         }
-        const phone = cleanPhoneNumber(selectedBranch.whatsapp);
-        const urlProduk = window.location.href;
+        const phone = selectedBranch.whatsapp.replace(/\D/g, '').replace(/^0/, '62');
+        const urlProduk = window.location.href; // URL Halaman ini (Slug)
         
-        // Menambahkan URL Gambar Utama agar Admin bisa lihat foto produknya
-        const imgUrl = product.image_1_url || "";
-
+        // Agar muncul Card di WA, URL harus ditaruh di dalam pesan.
+        // WA akan otomatis mengambil og:image dari <svelte:head>
         const pesan = 
-            `*ORDER BARU DARI WEB*\n\n` +
-            `Hallo "${selectedBranch.name}"\n` +
-            `Saya Ingin Pesan:\n` +
-            `*${product.name}*\n\n` +
-            `SKU: ${product.sku || '-'}\n` +
-            `Harga: ${formatRupiah(product.price)}\n` +
-            `Link: ${urlProduk}\n` +
-            `Foto: ${imgUrl}\n\n` + // Mengirim Link Foto Langsung
-            `Mohon info ketersediaan stok & totalan. Terima kasih.`;
+            `Halo kak, saya mau pesan produk ini:\n` +
+            `${urlProduk}\n\n` +  // Link ditaruh di atas agar ter-detect previewnya
+            `Nama: *${product.name}*\n` +
+            `Harga: ${formatRupiah(product.price)}\n\n` +
+            `Mohon info stok di cabang ${selectedBranch.name}. Terima kasih.`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
 
+    // --- UI HELPERS ---
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
@@ -131,6 +142,11 @@
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
     }
 
+    function selectBranch(branch) {
+        selectedBranch = branch;
+        showBranchModal = false; 
+    }
+
     function optimizeCloudinary(url, width = 'auto') {
         if (!url || !url.includes('cloudinary.com')) return url;
         return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
@@ -139,7 +155,6 @@
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
-    
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
         if (!p && !l && !t) return null;
@@ -148,9 +163,11 @@
 </script>
 
 <svelte:head>
-    <meta property="og:image" content={product?.image_1_url} />
-    <meta property="og:image:width" content="800" />
-    <meta property="og:image:height" content="800" />
+    <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
+    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:image" content={product ? optimizeCloudinary(product.image_1_url, 600) : ''} />
+    <meta property="og:url" content={$page.url.href} />
+    <meta property="og:type" content="product" />
     <title>{product ? product.name : 'Memuat...'} - Narwastu</title>
 </svelte:head>
 
@@ -191,7 +208,11 @@
                     
                     <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
                         {#each mediaList as item, i}
-                            <button onclick={() => scrollTo(i)} class="relative w-14 h-14 rounded overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white {activeIndex === i ? 'ring-1 ring-[#C4161C]' : 'opacity-70 hover:opacity-100'}">
+                            <button 
+                                onclick={() => scrollTo(i)} 
+                                class="relative w-14 h-14 rounded overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white 
+                                {activeIndex === i ? 'opacity-100' : 'opacity-50 hover:opacity-100'}"
+                            >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item, 150)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
                             </button>
@@ -217,7 +238,7 @@
 
                     <div class="mb-6">
                         <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Lokasi Stok</h3>
-                        <button onclick={() => showBranchModal = true} class="w-full flex items-center gap-3 px-3 py-2.5 border border-gray-200 rounded-lg hover:border-[#C4161C] transition bg-white text-left group">
+                        <button onclick={() => showBranchModal = true} class="w-full flex items-center gap-3 py-2 bg-white text-left group transition-all hover:bg-gray-50 rounded-lg -ml-2 px-2">
                             <div class="flex-1 min-w-0">
                                 <div class="text-xs font-bold text-gray-800 truncate group-hover:text-[#C4161C]">{selectedBranch.name}</div>
                                 <div class="text-[10px] text-gray-500 truncate">{selectedBranch.address || "Pilih lokasi..."}</div>
@@ -293,7 +314,7 @@
         </div>
     
     {:else}
-        <div class="container mx-auto px-4 max-w-7xl pt-6">
+        <div class="container mx-auto px-4 max-w-7xl pt-6" in:fade>
             <div class="flex flex-col md:flex-row gap-8 animate-pulse">
                 <div class="w-full md:w-[384px] aspect-square bg-gray-100 rounded-lg"></div>
                 <div class="flex-1 space-y-4">
