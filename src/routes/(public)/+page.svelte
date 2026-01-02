@@ -84,9 +84,12 @@
         return key ? ICON_MAP[key] : kategoriImg;
     };
 
-    const optimizeUrl = (url, width) => {
+    // --- PERBAIKAN 1: UPDATE FUNGSI OPTIMIZE ---
+    // Sekarang menerima parameter 'quality' (default: eco)
+    const optimizeUrl = (url, width, quality = 'eco') => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
+        // Kita ganti q_auto:eco menjadi q_auto:good atau best jika diminta
+        return url.replace("/upload/", `/upload/f_auto,q_auto:${quality},w_${width}/`);
     };
 
     // --- FETCH DATA ---
@@ -112,7 +115,8 @@
             if (res.ok) {
                 let raw = await res.json();
                 if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
-                banners = raw.map(b => ({ ...b, image_url: optimizeUrl(b.image_url, 800) }));
+                // Kita simpan URL asli di state, optimize nanti di HTML agar dinamis
+                banners = raw; 
                 updateCache();
             }
         } catch (e) { console.error("Banner Error", e); } 
@@ -127,9 +131,10 @@
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
                 products = raw.map(p => ({
                     ...p,
-                    image_1_url: optimizeUrl(p.image_1_url, 250),
-                    image_2_url: optimizeUrl(p.image_2_url, 250),
-                    image_3_url: optimizeUrl(p.image_3_url, 250)
+                    // Produk kecil pakai 'eco' biar cepat
+                    image_1_url: optimizeUrl(p.image_1_url, 250, 'eco'),
+                    image_2_url: optimizeUrl(p.image_2_url, 250, 'eco'),
+                    image_3_url: optimizeUrl(p.image_3_url, 250, 'eco')
                 }));
                 updateCache();
             } else {
@@ -139,35 +144,21 @@
         finally { loadingProducts = false; }
     }
 
-    // --- PERBAIKAN UTAMA FETCH CABANG ---
     async function fetchBranchData() {
         loadingBranches = true;
         try {
-            // FIX: Gunakan URL persis seperti yang Baginda berikan
-            // Tanpa slash di akhir, dan pakai query param
             const url = `${PUBLIC_API_URL}/branches?include_inactive=false`;
-            
-            console.log("Fetching cabang:", url); // DEBUG
             const res = await fetch(url);
             
             if (res.ok) {
                 const raw = await res.json();
-                console.log("Data Cabang Masuk:", raw); // DEBUG
-
                 let list = [];
                 if (Array.isArray(raw)) {
                     list = raw;
                 } else if (raw.data && Array.isArray(raw.data)) {
                     list = raw.data;
                 }
-
-                // Filter yang longgar (karena API sudah filter inactive)
-                // Cukup pastikan ada nomor WA
                 branches = list.filter(b => b.whatsapp);
-                
-                console.log("Cabang Filtered:", branches); // DEBUG
-            } else {
-                console.error("Gagal load cabang:", res.status);
             }
         } catch (e) {
             console.error("Error cabang:", e);
@@ -194,7 +185,6 @@
     function openBuyModal(product) {
         selectedProduct = product;
         showBranchModal = true;
-        // Fetch ulang jika kosong saat modal dibuka
         if (branches.length === 0) fetchBranchData();
     }
 
@@ -231,9 +221,15 @@
                         {#if i === currentIndex}
                             <div in:fly={{ x: 300, duration: 400 }} out:fly={{ x: -300, duration: 400 }} class="absolute inset-0 w-full h-full">
                                 <img 
-                                    srcset="{optimizeUrl(banner.image_url, 480)} 480w, {optimizeUrl(banner.image_url, 800)} 800w, {optimizeUrl(banner.image_url, 1200)} 1200w"
-                                    sizes="(max-width: 600px) 480px, (max-width: 1000px) 800px, 1200px"
-                                    src={optimizeUrl(banner.image_url, 1200)} alt="Promo" 
+                                    srcset="
+                                        {optimizeUrl(banner.image_url, 640, 'eco')} 640w, 
+                                        {optimizeUrl(banner.image_url, 1000, 'good')} 1000w, 
+                                        {optimizeUrl(banner.image_url, 1600, 'good')} 1600w,
+                                        {optimizeUrl(banner.image_url, 2000, 'good')} 2000w
+                                    "
+                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
+                                    src={optimizeUrl(banner.image_url, 1600, 'good')} 
+                                    alt="Promo" 
                                     class="w-full h-full object-cover" 
                                     fetchpriority="high" loading="eager" decoding="async"
                                 />
@@ -298,7 +294,7 @@
                                 <div class="relative w-full aspect-[3/4] mb-2 overflow-hidden rounded-xl bg-gray-50 border-none shadow-sm">
                                     <a href="/produk/{item.slug}">
                                         <img 
-                                            src={optimizeUrl(item.image_1_url, 250)} 
+                                            src={optimizeUrl(item.image_1_url, 250, 'eco')} 
                                             alt={item.name} 
                                             loading="lazy" decoding="async" width="150" height="200"
                                             class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
@@ -379,5 +375,4 @@
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    .sr-only { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip: rect(0,0,0,0); border: 0; }
 </style>
