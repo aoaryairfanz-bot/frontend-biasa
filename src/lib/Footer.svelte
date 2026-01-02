@@ -5,13 +5,17 @@
             <div class="col-span-1 md:col-span-1">
                 <div class="flex items-center gap-2 mb-6">
                     <img 
-                        src="https://res.cloudinary.com/dqyztrelw/image/upload/v1766051198/favicon_jgz09p.png" 
-                        alt="logo" 
+                        src="https://res.cloudinary.com/dqyztrelw/image/upload/f_auto,q_auto:eco,w_64/v1766051198/favicon_jgz09p.png" 
+                        alt="Narwastu Logo" 
+                        width="24"
+                        height="24"
+                        loading="lazy"
+                        decoding="async"
                         class="h-6 w-auto opacity-80" 
                     />
                     <span 
-                        class="text-xl tracking-wider bg-gradient-to-r from-[#8B0000] via-[#FFD700] to-[#C4161C] bg-clip-text text-transparent italic"
-                        style="font-family: 'Cinzel', serif; font-weight: 700; text-transform: lowercase;"
+                        class="text-xl tracking-wider bg-gradient-to-r from-[#8B0000] via-[#FFD700] to-[#C4161C] bg-clip-text text-transparent italic font-cinzel"
+                        style="font-weight: 700; text-transform: lowercase;"
                     >
                         narwastu
                     </span>
@@ -66,8 +70,8 @@
                 &copy; 2025 <span class="text-white">narwastu toko kristiani</span>. all rights reserved.
             </div>
             <div class="flex gap-6">
-                <a href="#" class="hover:text-white transition-colors">syarat & ketentuan</a>
-                <a href="#" class="hover:text-white transition-colors">kebijakan privasi</a>
+                <button class="hover:text-white transition-colors cursor-pointer">syarat & ketentuan</button>
+                <button class="hover:text-white transition-colors cursor-pointer">kebijakan privasi</button>
             </div>
         </div>
     </div>
