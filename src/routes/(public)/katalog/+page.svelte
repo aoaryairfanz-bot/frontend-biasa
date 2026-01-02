@@ -2,34 +2,60 @@
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import { page } from '$app/stores'; 
-    import { PUBLIC_API_URL } from '$env/static/public'; // Import ENV
+    import { PUBLIC_API_URL } from '$env/static/public'; 
+    import { LoaderIcon, FilterIcon, AlertCircleIcon } from 'svelte-feather-icons';
 
     let { data } = $props();
 
     // --- STATE ---
+    // Inisialisasi dengan array kosong agar aman
     let products = $state([]); 
-    let isLoading = $state(true); // Default loading true agar transisi mulus
+    let isLoading = $state(true); 
 
-    // --- OPTIMASI 1: Caching & Fetching (Client Side) ---
+    // --- OPTIMASI 1: Caching & Fetching (Robust) ---
     onMount(async () => {
-        const CACHE_KEY = 'katalog_products_v1';
+        const CACHE_KEY = 'katalog_products_v2';
         
-        // 1. Cek Session Storage (Instant Load)
-        const cachedData = sessionStorage.getItem(CACHE_KEY);
-        if (cachedData) {
-            products = JSON.parse(cachedData);
-            isLoading = false; // Data sudah ada, matikan loading
+        // 1. Cek Cache (Instant Load)
+        try {
+            const cachedData = sessionStorage.getItem(CACHE_KEY);
+            if (cachedData) {
+                const parsed = JSON.parse(cachedData);
+                if (Array.isArray(parsed) && parsed.length > 0) {
+                    products = parsed;
+                    isLoading = false; 
+                }
+            }
+        } catch (e) {
+            console.error("Cache error", e);
         }
 
-        // 2. Fetch Data Terbaru dari API (Background Update)
-        // Kita fetch ulang untuk memastikan data selalu fresh (stok update, harga update)
+        // 2. Fetch Data Terbaru dari API
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products`);
+            // Pastikan URL benar
+            const res = await fetch(`${PUBLIC_API_URL}/products/`); 
+            
             if (res.ok) {
-                const newData = await res.json();
-                products = newData;
-                // Update Cache
-                sessionStorage.setItem(CACHE_KEY, JSON.stringify(newData));
+                const result = await res.json();
+                console.log("Data API:", result); // Debugging
+
+                // --- SAFETY CHECK: Pastikan format data benar ---
+                let finalData = [];
+                if (Array.isArray(result)) {
+                    finalData = result;
+                } else if (result.products && Array.isArray(result.products)) {
+                    finalData = result.products;
+                } else if (result.data && Array.isArray(result.data)) {
+                    finalData = result.data;
+                }
+
+                // Hanya update jika ada data
+                if (finalData.length > 0) {
+                    products = finalData;
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(finalData));
+                }
+            } else {
+                console.error("API Error:", res.status);
             }
         } catch (e) {
             console.error("Gagal update produk:", e);
@@ -38,7 +64,7 @@
         }
     });
 
-    // --- OPTIMASI 2: Konstanta & Utils ---
+    // --- OPTIMASI 2: Constants & Utils ---
     const NON_BOOK_KEYWORDS = ['lilin', 'salib', 'rosario', 'gelang', 'kalung', 'patung', 'tempat lilin', 'goa', 'perjamuan', 'hosti', 'anggur', 'piala', 'kain', 'kotak', 'alas', 'dw0', 'kcb'];
     const BOOK_KEYWORDS = ['alkitab', 'book', 'buku', 'kitab', 'injil', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah'];
 
@@ -47,7 +73,7 @@
 
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // w_200 + q_auto:eco = Super Ringan & Cepat di HP
+        // w_200 + q_auto:eco = Super Ringan
         return url.replace("/upload/", `/upload/q_auto:eco,f_auto,w_${width}/`);
     };
 
@@ -67,21 +93,22 @@
 
     // --- FILTERING ---
     let allFilteredProducts = $derived.by(() => {
-        if (!products.length) return [];
+        if (!products || products.length === 0) return [];
 
         let result = products;
 
         if (searchTerm) {
             result = result.filter(p => 
-                p.name?.toLowerCase().includes(searchTerm) || 
-                p.slug?.toLowerCase().includes(searchTerm)
+                (p.name && p.name.toLowerCase().includes(searchTerm)) || 
+                (p.slug && p.slug.toLowerCase().includes(searchTerm))
             );
         }
 
         if (filter !== 'all') {
             result = result.filter(item => {
-                const text = (item.name + " " + (item.slug || "")).toLowerCase();
+                const text = ((item.name || "") + " " + (item.slug || "")).toLowerCase();
                 const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw));
+                
                 if (filter === 'book') return isBook;
                 return !isBook || NON_BOOK_KEYWORDS.some(kw => text.includes(kw));
             });
@@ -218,13 +245,21 @@
         {:else}
             <div class="text-center py-32">
                 <div class="inline-block p-4 rounded-full bg-gray-50 mb-3">
-                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                    </svg>
+                    <FilterIcon size="32" class="text-gray-300"/>
                 </div>
-                <h3 class="text-sm font-bold text-gray-500">Tidak ada produk ditemukan</h3>
+                <h3 class="text-sm font-bold text-gray-500">
+                    {#if isLoading}
+                        Memuat produk...
+                    {:else}
+                        Tidak ada produk ditemukan
+                    {/if}
+                </h3>
                 {#if searchTerm}
                     <button onclick={() => window.location.href='/katalog'} class="mt-4 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Lihat Semua Produk</button>
+                {/if}
+                
+                {#if !isLoading && products.length === 0}
+                    <p class="text-xs text-red-400 mt-2">Gagal memuat data. Refresh Kembali.</p>
                 {/if}
             </div>
         {/if}
