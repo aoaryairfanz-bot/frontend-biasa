@@ -2,43 +2,52 @@
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import { page } from '$app/stores'; 
+    import { PUBLIC_API_URL } from '$env/static/public'; // Import ENV
 
     let { data } = $props();
 
-    // --- STATE DATA PRODUK (Default Array Kosong) ---
-    let products = $state([]);
+    // --- STATE ---
+    let products = $state([]); 
+    let isLoading = $state(true); // Default loading true agar transisi mulus
 
-    // --- OPTIMASI 1: Caching & Session Storage ---
-    onMount(() => {
-        // 1. Cek apakah ada data tersimpan di Session Storage?
-        const cachedData = sessionStorage.getItem('katalog_products');
+    // --- OPTIMASI 1: Caching & Fetching (Client Side) ---
+    onMount(async () => {
+        const CACHE_KEY = 'katalog_products_v1';
         
+        // 1. Cek Session Storage (Instant Load)
+        const cachedData = sessionStorage.getItem(CACHE_KEY);
         if (cachedData) {
-            // Jika ada, pakai data dari cache dulu (INSTANT LOAD)
             products = JSON.parse(cachedData);
+            isLoading = false; // Data sudah ada, matikan loading
         }
 
-        // 2. Jika ada data baru dari Server (Props), Update Cache & Tampilan
-        if (data.products && data.products.length > 0) {
-            products = data.products;
-            // Simpan data terbaru ke Session Storage
-            sessionStorage.setItem('katalog_products', JSON.stringify(data.products));
+        // 2. Fetch Data Terbaru dari API (Background Update)
+        // Kita fetch ulang untuk memastikan data selalu fresh (stok update, harga update)
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/products`);
+            if (res.ok) {
+                const newData = await res.json();
+                products = newData;
+                // Update Cache
+                sessionStorage.setItem(CACHE_KEY, JSON.stringify(newData));
+            }
+        } catch (e) {
+            console.error("Gagal update produk:", e);
+        } finally {
+            isLoading = false;
         }
     });
 
-    // --- OPTIMASI 2: Konstanta filter statis ---
+    // --- OPTIMASI 2: Konstanta & Utils ---
     const NON_BOOK_KEYWORDS = ['lilin', 'salib', 'rosario', 'gelang', 'kalung', 'patung', 'tempat lilin', 'goa', 'perjamuan', 'hosti', 'anggur', 'piala', 'kain', 'kotak', 'alas', 'dw0', 'kcb'];
     const BOOK_KEYWORDS = ['alkitab', 'book', 'buku', 'kitab', 'injil', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah'];
 
-    // --- OPTIMASI 3: Formatter & Gambar Super Kecil ---
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // q_auto:eco -> Kompresi maksimal (hemat kuota)
-        // f_auto -> Format otomatis (WebP)
-        // w_200 -> Lebar cuma 200px (Sangat ringan untuk HP)
+        // w_200 + q_auto:eco = Super Ringan & Cepat di HP
         return url.replace("/upload/", `/upload/q_auto:eco,f_auto,w_${width}/`);
     };
 
@@ -58,7 +67,6 @@
 
     // --- FILTERING ---
     let allFilteredProducts = $derived.by(() => {
-        // Jika products belum dimuat, return kosong
         if (!products.length) return [];
 
         let result = products;
@@ -74,12 +82,10 @@
             result = result.filter(item => {
                 const text = (item.name + " " + (item.slug || "")).toLowerCase();
                 const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw));
-                
                 if (filter === 'book') return isBook;
                 return !isBook || NON_BOOK_KEYWORDS.some(kw => text.includes(kw));
             });
         }
-        
         return result;
     });
 
@@ -94,14 +100,12 @@
     function changeCategory(id) {
         filter = id;
         currentPage = 1;
-        // Scroll smooth ke atas
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
 
     function changePage(newPage) {
         if (newPage >= 1 && newPage <= totalPages) {
             currentPage = newPage;
-            // Scroll langsung (instant) agar cepat
             window.scrollTo({ top: 0, behavior: 'instant' }); 
         }
     }
@@ -131,19 +135,27 @@
     </div>
 
     <div class="container mx-auto px-4 max-w-[1200px]">
-        {#if visibleProducts.length > 0}
+        
+        {#if isLoading && products.length === 0}
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-5 mb-10">
+                {#each Array(10) as _}
+                    <div class="bg-gray-50 rounded-xl aspect-[3/4] animate-pulse"></div>
+                {/each}
+            </div>
+
+        {:else if visibleProducts.length > 0}
             <div class="flex flex-row justify-between items-center mb-4 gap-2 text-[10px] md:text-xs text-gray-500 border-b border-gray-50 pb-2">
                 <div class="flex items-center gap-1.5 min-w-0 overflow-hidden">
                     {#if searchTerm}
                         <span class="whitespace-nowrap flex-shrink-0">Hasil:</span>
                         <span class="text-[#C4161C] font-bold not-italic truncate">"{searchTerm}"</span>
-                        <a href="/katalog" class="ml-2 text-blue-600 hover:underline font-medium flex-shrink-0">Hapus Filter</a>
+                        <a href="/katalog" class="ml-2 text-blue-600 hover:underline font-medium flex-shrink-0">Hapus</a>
                     {:else}
                         <span class="font-bold">Semua Produk</span>
                     {/if}
                 </div>
                 <div class="flex-shrink-0">
-                    Halaman {currentPage} dari {totalPages}
+                    Hal {currentPage}/{totalPages}
                 </div>
             </div>
 
@@ -189,7 +201,6 @@
             {#if totalPages > 1}
             <div class="flex justify-center items-center gap-2 pb-10 mt-8">
                 <button onclick={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❮</button>
-                
                 {#each Array(totalPages) as _, i}
                     {@const p = i + 1}
                     {#if p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)}
@@ -200,7 +211,6 @@
                         <span class="text-gray-300 text-xs">...</span>
                     {/if}
                 {/each}
-
                 <button onclick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❯</button>
             </div>
             {/if}
