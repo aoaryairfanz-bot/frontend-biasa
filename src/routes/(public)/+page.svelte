@@ -78,10 +78,26 @@
         'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png'
     };
 
+    // const getSubIcon = (name) => {
+    //     if (!name) return kategoriImg;
+    //     const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
+    //     return key ? ICON_MAP[key] : kategoriImg;
+    // };
+    // --- KODE BARU (Auto Resize 128px) ---
     const getSubIcon = (name) => {
         if (!name) return kategoriImg;
+        
         const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
-        return key ? ICON_MAP[key] : kategoriImg;
+        const url = key ? ICON_MAP[key] : kategoriImg;
+
+        // JURUS HEMAT:
+        // Jika URL dari flaticon (ada angka 512), kita paksa ganti jadi 128.
+        // Ukuran file akan turun drastis dari ~50KB menjadi ~3KB saja!
+        if (typeof url === 'string' && url.includes('/512/')) {
+            return url.replace('/512/', '/128/');
+        }
+        
+        return url;
     };
 
     // --- PERBAIKAN 1: UPDATE FUNGSI OPTIMIZE ---
