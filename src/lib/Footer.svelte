@@ -24,15 +24,15 @@
             <div>
                 <h3 class="text-white text-xs font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#C4161C] pb-2 w-fit">tautan</h3>
                 <ul class="space-y-3 text-xs">
-                    <li><a href="/" class="hover:text-[#C4161C] transition-colors">home</a></li>
-                    <li><a href="/katalog" class="hover:text-[#C4161C] transition-colors">katalog produk</a></li>
-                    <li><a href="/cabang" class="hover:text-[#C4161C] transition-colors">lokasi cabang</a></li>
-                    <li><a href="/bantuan" class="hover:text-[#C4161C] transition-colors">cara pemesanan</a></li>
+                    <li><a href="/" class="hover:text-[#C4161C] transition-colors">Home</a></li>
+                    <li><a href="/katalog" class="hover:text-[#C4161C] transition-colors">Katalog produk</a></li>
+                    <li><a href="/cabang" class="hover:text-[#C4161C] transition-colors">Lokasi cabang</a></li>
+                    <li><a href="/bantuan" class="hover:text-[#C4161C] transition-colors">Cara pemesanan</a></li>
                 </ul>
             </div>
 
             <div>
-                <h3 class="text-white text-xs font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#C4161C] pb-2 w-fit">hubungi kami</h3>
+                <h3 class="text-white text-xs font-bold uppercase tracking-[0.2em] mb-6 border-b border-[#C4161C] pb-2 w-fit">Hubungi kami</h3>
                 <ul class="space-y-4 text-xs">
                     <li class="flex items-start gap-3">
                         <svg class="w-4 h-4 text-[#C4161C] shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
@@ -50,7 +50,7 @@
                 <div class="space-y-4 text-xs">
                     <div class="flex justify-between border-b border-gray-800 pb-2">
                         <span>Senin - Sabtu</span>
-                        <span class="text-white">09:00 - 17:00</span>
+                        <span class="text-white">08:00 - 17:00</span>
                     </div>
                     <div class="flex justify-between text-red-500 font-medium italic">
                         <span>Minggu / Tgl Merah</span>
@@ -63,7 +63,7 @@
 
         <div class="border-t border-gray-800 pt-8 flex flex-col md:flex-row justify-between items-center gap-4 text-[10px] text-gray-500 uppercase tracking-widest">
             <div>
-                &copy; 2025 <span class="text-white">narwastu kristiani</span>. all rights reserved.
+                &copy; 2025 <span class="text-white">narwastu toko kristiani</span>. all rights reserved.
             </div>
             <div class="flex gap-6">
                 <a href="#" class="hover:text-white transition-colors">syarat & ketentuan</a>

@@ -215,8 +215,8 @@
 </script>
 
 <svelte:head>
-    <title>Narwastu - Toko Perlengkapan Rohani & Buku Kristiani</title>
-    <meta name="description" content="Toko Rohani Narwastu terlengkap." />
+    <title>Narwastu - Toko Kristiani</title>
+    <meta name="description" content="Toko Rohani Narwastu menjual perengkapan ibadah." />
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&display=swap" rel="stylesheet">

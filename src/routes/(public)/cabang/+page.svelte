@@ -28,14 +28,6 @@
         }
     });
 
-    // --- FILTER ---
-    let filteredBranches = $derived(branches.filter(branch => {
-        const term = searchQuery.toLowerCase();
-        const name = (branch.name || "").toLowerCase();
-        const address = (branch.address || "").toLowerCase();
-        return name.includes(term) || address.includes(term);
-    }));
-
     // --- HELPER ---
     function getWALink(phone) {
         if (!phone) return "#";
@@ -52,18 +44,6 @@
     <div class="container mx-auto px-4 max-w-2xl">
         
         <h1 class="text-2xl font-bold tracking-tight mb-6 text-center">Cabang</h1>
-
-        <div class="relative mb-8">
-            <input 
-                type="text" 
-                bind:value={searchQuery} 
-                placeholder="Cari kota..." 
-                class="w-full py-3 pl-10 pr-4 bg-gray-50 border-none rounded-lg focus:ring-0 text-sm font-medium placeholder-gray-400 transition-all duration-200"
-            />
-            <div class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400">
-                <SearchIcon size="16" />
-            </div>
-        </div>
 
         {#if isLoading}
             <div class="space-y-6">
