@@ -223,17 +223,15 @@
                                 <img 
                                     srcset="
                                         {optimizeUrl(banner.image_url, 640, 'eco')} 640w, 
-                                        {optimizeUrl(banner.image_url, 960, 'eco')} 960w, 
-                                        {optimizeUrl(banner.image_url, 1400, 'good')} 1400w,
+                                        {optimizeUrl(banner.image_url, 1000, 'good')} 1000w, 
+                                        {optimizeUrl(banner.image_url, 1600, 'good')} 1600w,
                                         {optimizeUrl(banner.image_url, 2000, 'good')} 2000w
                                     "
                                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
-                                    src={optimizeUrl(banner.image_url, 1400, 'good')} 
+                                    src={optimizeUrl(banner.image_url, 1600, 'good')} 
                                     alt="Promo" 
                                     class="w-full h-full object-cover" 
-                                    fetchpriority="high" 
-                                    loading="eager" 
-                                    decoding="async"
+                                    fetchpriority="high" loading="eager" decoding="async"
                                 />
                             </div>
                         {/if}
