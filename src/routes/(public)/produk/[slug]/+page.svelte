@@ -5,8 +5,6 @@
     import { PUBLIC_API_URL } from '$env/static/public';
 
     let { data } = $props();
-    
-    // Ambil slug dari data yang dikirim oleh +page.js
     let slug = $derived(data.slug);
 
     // --- STATE ---
@@ -30,7 +28,6 @@
     let activeIndex = $state(0); 
     let sliderRef; 
 
-    // Media list dihitung setelah product ada
     let mediaList = $derived.by(() => {
         if (!product) return [];
         let list = [product.image_1_url, product.image_2_url, product.image_3_url].filter(Boolean);
@@ -38,14 +35,10 @@
         return list;
     });
 
-    // --- EFFECT ---
     $effect(() => {
-        if (slug) {
-            loadProductDetail();
-        }
+        if (slug) loadProductDetail();
     });
 
-    // --- LOAD DATA ---
     async function loadProductDetail() {
         isLoading = true;
         try {
@@ -57,14 +50,9 @@
                 loadRelatedProducts();
                 activeIndex = 0;
                 window.scrollTo({ top: 0, behavior: 'instant' });
-            } else {
-                console.error("Produk tidak ditemukan");
             }
-        } catch (e) {
-            console.error("Gagal load produk:", e);
-        } finally {
-            isLoading = false;
-        }
+        } catch (e) { console.error(e); } 
+        finally { isLoading = false; }
     }
 
     async function loadBranches() {
@@ -104,6 +92,7 @@
         return clean;
     }
 
+    // --- FITUR WA (DIPERBAIKI) ---
     function handleBeli() {
         if (!selectedBranch || !selectedBranch.whatsapp) {
             showBranchModal = true;
@@ -111,12 +100,21 @@
         }
         const phone = cleanPhoneNumber(selectedBranch.whatsapp);
         const urlProduk = window.location.href;
+        
+        // Menambahkan URL Gambar Utama agar Admin bisa lihat foto produknya
+        const imgUrl = product.image_1_url || "";
+
         const pesan = 
-            `${urlProduk}\n\n` +
+            `*ORDER BARU DARI WEB*\n\n` +
             `Hallo "${selectedBranch.name}"\n` +
-            `Saya Ingin Pesan "${product.name}"\n` +
-            `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
-            `Bisa diproses secepatnya?`;
+            `Saya Ingin Pesan:\n` +
+            `*${product.name}*\n\n` +
+            `SKU: ${product.sku || '-'}\n` +
+            `Harga: ${formatRupiah(product.price)}\n` +
+            `Link: ${urlProduk}\n` +
+            `Foto: ${imgUrl}\n\n` + // Mengirim Link Foto Langsung
+            `Mohon info ketersediaan stok & totalan. Terima kasih.`;
+            
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
 
@@ -145,12 +143,14 @@
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
         if (!p && !l && !t) return null;
-        return `${p}x${l}x${t}`; // Format lebih pendek agar muat
+        return `${p}x${l}x${t}`;
     }
 </script>
 
 <svelte:head>
     <meta property="og:image" content={product?.image_1_url} />
+    <meta property="og:image:width" content="800" />
+    <meta property="og:image:height" content="800" />
     <title>{product ? product.name : 'Memuat...'} - Narwastu</title>
 </svelte:head>
 
@@ -164,10 +164,10 @@
     
     {#if product}
         <div class="border-b border-gray-100 mb-4 bg-white sticky top-0 z-20">
-            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate">
+            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate flex items-center">
                 <a href="/" class="hover:text-[#C4161C]">Home</a> <span class="mx-1">/</span> 
                 <a href="/katalog" class="hover:text-[#C4161C]">Katalog</a> <span class="mx-1">/</span> 
-                <span class="text-gray-900">{product.name}</span>
+                <span class="text-gray-900 truncate">{product.name}</span>
             </div>
         </div>
 
@@ -175,7 +175,7 @@
             <div class="flex flex-col md:flex-row gap-6 md:gap-8">
                 
                 <div class="w-full md:w-[384px] shrink-0 flex flex-col gap-3">
-                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group border border-gray-100">
+                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group">
                         <div bind:this={sliderRef} onscroll={handleScroll} class="flex w-full h-full overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide">
                             {#each mediaList as item, i}
                                 <div class="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center bg-white">
@@ -191,7 +191,7 @@
                     
                     <div class="flex gap-2 overflow-x-auto pb-1 scrollbar-hide justify-center">
                         {#each mediaList as item, i}
-                            <button onclick={() => scrollTo(i)} class="relative w-14 h-14 rounded border border-gray-200 overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white {activeIndex === i ? 'border-[#C4161C]' : ''}">
+                            <button onclick={() => scrollTo(i)} class="relative w-14 h-14 rounded overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white {activeIndex === i ? 'ring-1 ring-[#C4161C]' : 'opacity-70 hover:opacity-100'}">
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item, 150)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
                             </button>
@@ -215,7 +215,7 @@
                         {/if}
                     </div>
 
-                    <div class="mb-5">
+                    <div class="mb-6">
                         <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Lokasi Stok</h3>
                         <button onclick={() => showBranchModal = true} class="w-full flex items-center gap-3 px-3 py-2.5 border border-gray-200 rounded-lg hover:border-[#C4161C] transition bg-white text-left group">
                             <div class="flex-1 min-w-0">
@@ -226,34 +226,34 @@
                         </button>
                     </div>
 
-                    <div class="mb-6 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <div class="grid grid-cols-4 gap-2 text-center md:text-left">
+                    <div class="mb-8">
+                        <div class="grid grid-cols-4 gap-4 text-center md:text-left">
                             {#if product.sku}
                                 <div class="flex flex-col">
-                                    <span class="text-[9px] text-gray-400 font-bold uppercase">SKU</span>
-                                    <span class="text-[10px] md:text-xs font-bold text-gray-700 truncate">{product.sku}</span>
+                                    <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">SKU</span>
+                                    <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{product.sku}</span>
                                 </div>
                             {/if}
                             
                             <div class="flex flex-col">
-                                <span class="text-[9px] text-gray-400 font-bold uppercase">Berat</span>
-                                <span class="text-[10px] md:text-xs font-bold text-gray-700">{product.weight || 0}gr</span>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Berat</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.weight || 0}gr</span>
                             </div>
                             <div class="flex flex-col">
-                                <span class="text-[9px] text-gray-400 font-bold uppercase">Stok</span>
-                                <span class="text-[10px] md:text-xs font-bold text-gray-700">{product.stock}</span>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Stok</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.stock}</span>
                             </div>
                             {#if formatDimensi()}
                                 <div class="flex flex-col">
-                                    <span class="text-[9px] text-gray-400 font-bold uppercase">Dimensi</span>
-                                    <span class="text-[10px] md:text-xs font-bold text-gray-700 truncate">{formatDimensi()}</span>
+                                    <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Dimensi</span>
+                                    <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{formatDimensi()}</span>
                                 </div>
                             {/if}
                         </div>
                     </div>
 
-                    <div class="mb-8">
-                        <h3 class="text-sm font-extrabold text-gray-800 mb-2 uppercase tracking-tight">Deskripsi Produk</h3>
+                    <div class="mb-8 border-t border-gray-100 pt-6">
+                        <h3 class="text-sm font-extrabold text-gray-800 mb-3 uppercase tracking-tight">Deskripsi Produk</h3>
                         <div class="relative">
                             <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description || "Deskripsi belum tersedia."}</p>
                             {#if !isDescriptionExpanded && (product.description?.length > 150)}
@@ -293,13 +293,13 @@
         </div>
     
     {:else}
-        <div class="container mx-auto px-4 max-w-7xl pt-10">
+        <div class="container mx-auto px-4 max-w-7xl pt-6">
             <div class="flex flex-col md:flex-row gap-8 animate-pulse">
-                <div class="w-full md:w-[384px] aspect-square bg-gray-200 rounded-lg"></div>
+                <div class="w-full md:w-[384px] aspect-square bg-gray-100 rounded-lg"></div>
                 <div class="flex-1 space-y-4">
-                    <div class="h-8 bg-gray-200 rounded w-3/4"></div>
-                    <div class="h-6 bg-gray-200 rounded w-1/4"></div>
-                    <div class="h-32 bg-gray-200 rounded w-full mt-6"></div>
+                    <div class="h-8 bg-gray-100 rounded w-3/4"></div>
+                    <div class="h-6 bg-gray-100 rounded w-1/4"></div>
+                    <div class="h-32 bg-gray-100 rounded w-full mt-6"></div>
                 </div>
             </div>
         </div>
