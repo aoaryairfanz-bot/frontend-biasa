@@ -16,7 +16,7 @@
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
     let loadingBranches = $state(true);
-    let errorMsg = $state(""); // Untuk nampung error jika ada
+    let errorMsg = $state("");
     
     let showBranchModal = $state(false);
     let selectedProduct = $state(null);
@@ -91,8 +91,7 @@
 
     // --- FETCH DATA ---
     onMount(async () => {
-        // Cek Cache dulu
-        const CACHE_KEY = 'home_data_v4'; // Ganti versi cache biar fresh
+        const CACHE_KEY = 'home_data_v5'; 
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
@@ -102,7 +101,6 @@
             } catch (e) { console.error("Cache Error", e); }
         }
 
-        // Fetch Data Fresh
         fetchBannerData();
         fetchProductData();
         fetchBranchData();
@@ -110,35 +108,23 @@
 
     async function fetchBannerData() {
         try {
-            // FIX: Tambahkan Slash di akhir ('/banners/')
             const res = await fetch(`${PUBLIC_API_URL}/banners/`); 
             if (res.ok) {
                 let raw = await res.json();
-                console.log("Banner Data:", raw); // DEBUG
-
-                // Safety Check: Pastikan Array
                 if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
-
                 banners = raw.map(b => ({ ...b, image_url: optimizeUrl(b.image_url, 800) }));
                 updateCache();
-            } else {
-                console.error("Banner Failed:", res.status);
             }
-        } catch (e) { console.error("Banner Network Error", e); } 
+        } catch (e) { console.error("Banner Error", e); } 
         finally { loadingBanner = false; }
     }
 
     async function fetchProductData() {
         try {
-            // FIX: Tambahkan Slash di akhir ('/products/')
             const res = await fetch(`${PUBLIC_API_URL}/products/`);
             if (res.ok) {
                 let raw = await res.json();
-                console.log("Product Data:", raw); // DEBUG
-
-                // Safety Check: Pastikan Array
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
-
                 products = raw.map(p => ({
                     ...p,
                     image_1_url: optimizeUrl(p.image_1_url, 250),
@@ -147,25 +133,27 @@
                 }));
                 updateCache();
             } else {
-                console.error("Product Failed:", res.status);
-                errorMsg = "Gagal memuat produk. Cek koneksi.";
+                errorMsg = "Gagal memuat produk.";
             }
-        } catch (e) { 
-            console.error("Product Network Error", e);
-            errorMsg = "Terjadi kesalahan jaringan.";
-        }
+        } catch (e) { errorMsg = "Kesalahan jaringan."; }
         finally { loadingProducts = false; }
     }
 
+    // --- PERBAIKAN UTAMA FETCH CABANG ---
     async function fetchBranchData() {
         loadingBranches = true;
         try {
-            // FIX: Tambahkan Slash di akhir ('/branches/')
-            const res = await fetch(`${PUBLIC_API_URL}/branches/`); 
+            // FIX: Gunakan URL persis seperti yang Baginda berikan
+            // Tanpa slash di akhir, dan pakai query param
+            const url = `${PUBLIC_API_URL}/branches?include_inactive=false`;
+            
+            console.log("Fetching cabang:", url); // DEBUG
+            const res = await fetch(url);
+            
             if (res.ok) {
-                let raw = await res.json();
-                
-                // Safety Check: Pastikan Array
+                const raw = await res.json();
+                console.log("Data Cabang Masuk:", raw); // DEBUG
+
                 let list = [];
                 if (Array.isArray(raw)) {
                     list = raw;
@@ -173,34 +161,40 @@
                     list = raw.data;
                 }
 
-                branches = list.filter(b => (b.is_active === true || b.is_active === 1 || b.is_active === "1") && b.whatsapp);
+                // Filter yang longgar (karena API sudah filter inactive)
+                // Cukup pastikan ada nomor WA
+                branches = list.filter(b => b.whatsapp);
+                
+                console.log("Cabang Filtered:", branches); // DEBUG
+            } else {
+                console.error("Gagal load cabang:", res.status);
             }
-        } catch (e) { console.error("Branch Error", e); } 
-        finally { loadingBranches = false; }
+        } catch (e) {
+            console.error("Error cabang:", e);
+        } finally {
+            loadingBranches = false;
+        }
     }
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v4', JSON.stringify({ banners, products }));
+            sessionStorage.setItem('home_data_v5', JSON.stringify({ banners, products }));
         }
     }
 
-    // --- BANNER SLIDE ---
     if (browser) {
         $effect(() => {
             if (displayBanners.length > 1) {
-                const timer = setInterval(() => {
-                    currentIndex = (currentIndex + 1) % displayBanners.length;
-                }, 5000);
+                const timer = setInterval(() => { currentIndex = (currentIndex + 1) % displayBanners.length; }, 5000);
                 return () => clearInterval(timer);
             }
         });
     }
 
-    // --- ACTIONS ---
     function openBuyModal(product) {
         selectedProduct = product;
         showBranchModal = true;
+        // Fetch ulang jika kosong saat modal dibuka
         if (branches.length === 0) fetchBranchData();
     }
 
@@ -290,7 +284,6 @@
                     <h2 class="text-lg md:text-xl font-extrabold text-gray-800">{title}</h2>
                     <a href={link} class="text-xs font-bold text-yellow-600 hover:text-yellow-700">Lihat Semua</a>
                 </div>
-                
                 <div class="flex gap-3 md:gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
                     {#if loadingProducts && rowProducts.length === 0}
                         {#each Array(4) as _}
