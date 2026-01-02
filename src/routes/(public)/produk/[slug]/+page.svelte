@@ -1,18 +1,18 @@
 <script>
-    import { fade } from 'svelte/transition';
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
+    import { Share2Icon, CheckIcon } from 'svelte-feather-icons';
 
+    // AMBIL DATA DARI +page.js (Agar SEO & WA Jalan)
     let { data } = $props();
+    let product = $derived(data.product); 
     let slug = $derived(data.slug);
 
-    // --- STATE ---
-    let product = $state(null); 
-    let isLoading = $state(true); 
-    
+    // --- STATE PENDUKUNG (Tetap di-load di client biar cepat) ---
     let relatedProducts = $state([]);       
     let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
+    let isCopied = $state(false); // Untuk tombol share
 
     // --- STATE CABANG ---
     let selectedBranch = $state({
@@ -34,41 +34,18 @@
         return list;
     });
 
+    // --- EFFECT ---
+    // Setiap kali produk berubah (pindah halaman), reset UI & load pendukung
     $effect(() => {
-        if (slug) {
-            product = null; 
-            isLoading = true;
+        if (product) {
             activeIndex = 0;
-            loadProductDetail();
+            loadBranches();
+            loadRelatedProducts();
+            // Scroll ke atas otomatis ditangani SvelteKit saat navigasi
         }
     });
 
-    async function loadProductDetail() {
-        const CACHE_KEY = `product_${slug}`;
-        try {
-            const cached = sessionStorage.getItem(CACHE_KEY);
-            if (cached) {
-                product = JSON.parse(cached);
-                isLoading = false;
-                loadBranches();
-                loadRelatedProducts();
-                window.scrollTo({ top: 0, behavior: 'instant' });
-                return; 
-            }
-
-            const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
-            if (res.ok) {
-                const raw = await res.json();
-                product = raw;
-                sessionStorage.setItem(CACHE_KEY, JSON.stringify(raw));
-                loadBranches();
-                loadRelatedProducts();
-                window.scrollTo({ top: 0, behavior: 'instant' });
-            }
-        } catch (e) { console.error(e); } 
-        finally { isLoading = false; }
-    }
-
+    // --- LOAD DATA CLIENT SIDE ---
     async function loadBranches() {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
@@ -93,19 +70,30 @@
         } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
     }
 
-    // --- WA FORMAT SESUAI SCREENSHOT ---
+    // --- ACTIONS ---
+    function handleShare() {
+        const shareData = {
+            title: product.name,
+            text: `Cek produk ini: ${product.name}`,
+            url: $page.url.href
+        };
+        if (navigator.share) {
+            navigator.share(shareData).catch(() => {});
+        } else {
+            navigator.clipboard.writeText($page.url.href);
+            isCopied = true;
+            setTimeout(() => isCopied = false, 2000);
+        }
+    }
+
     function handleBeli() {
         if (!selectedBranch || !selectedBranch.whatsapp) {
             showBranchModal = true;
             return;
         }
         const phone = selectedBranch.whatsapp.replace(/\D/g, '').replace(/^0/, '62');
-        const urlProduk = window.location.href; // URL Halaman ini
+        const urlProduk = $page.url.href;
         
-        // FORMAT PESAN PERSIS SEPERTI SCREENSHOT BAGINDA:
-        // 1. URL Paling Atas (Agar muncul Card Preview)
-        // 2. Enter 2x
-        // 3. Hallo...
         const pesan = 
             `${urlProduk}\n\n` + 
             `Hallo "${selectedBranch.name}"\n` +
@@ -116,7 +104,7 @@
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
 
-    // --- UTILS ---
+    // --- UI UTILS ---
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
@@ -143,25 +131,23 @@
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
-    
-    // Logic Dimensi (-) jika kosong
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
-        // Cek jika ada salah satu data, tampilkan. Jika semua 0/null/undefined, return "-"
-        if (p || l || t) {
-            return `${p || 0}x${l || 0}x${t || 0}cm`;
-        }
+        if (p || l || t) return `${p || 0}x${l || 0}x${t || 0}cm`;
         return "-";
     }
 </script>
 
 <svelte:head>
-    <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
-    <meta property="og:description" content="Pesan produk rohani terbaik di Narwastu" />
-    <meta property="og:image" content={product ? optimizeCloudinary(product.image_1_url, 600) : ''} />
-    <meta property="og:url" content={$page.url.href} />
+    <title>{product ? product.name : 'Narwastu Store'}</title>
     <meta property="og:type" content="product" />
-    <title>{product ? product.name : 'Memuat...'} - Narwastu</title>
+    <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
+    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:url" content={$page.url.href} />
+    <meta property="og:image" content={product ? optimizeCloudinary(product.image_1_url, 600) : ''} />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />
+    <meta name="twitter:card" content="summary_large_image">
 </svelte:head>
 
 <style>
@@ -246,12 +232,9 @@
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">SKU</span>
                                 <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{product.sku || "-"}</span>
                             </div>
-                            
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Berat</span>
-                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">
-                                    {product.weight ? product.weight + 'gr' : '-'}
-                                </span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.weight ? product.weight + 'gr' : '-'}</span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Stok</span>
@@ -276,8 +259,12 @@
                         </div>
                     </div>
 
-                    <div class="hidden md:flex gap-4 pt-4 border-t border-gray-100">
+                    <div class="hidden md:flex gap-3 pt-4 border-t border-gray-100">
                         <button onclick={handleBeli} class="flex-1 bg-[#C4161C] hover:bg-[#a51318] text-white font-bold h-12 rounded-lg shadow-md transition text-base tracking-wide uppercase">Beli Sekarang</button>
+                        <button onclick={handleShare} class="w-12 h-12 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition" title="Bagikan">
+                            {#if isCopied} <CheckIcon size="20" class="text-green-600" />
+                            {:else} <Share2Icon size="20" /> {/if}
+                        </button>
                     </div>
                 </div>
             </div>
@@ -300,8 +287,12 @@
             </div>
         </div>
 
-        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-3 z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)]">
-            <button onclick={handleBeli} class="w-full bg-[#C4161C] active:scale-95 transition-transform text-white font-bold py-3.5 rounded-lg text-sm shadow-md uppercase tracking-wide">Beli Sekarang</button>
+        <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-3 z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex gap-3">
+            <button onclick={handleShare} class="w-12 flex items-center justify-center border border-gray-300 rounded-lg text-gray-600 bg-white">
+                {#if isCopied} <CheckIcon size="18" class="text-green-600" />
+                {:else} <Share2Icon size="18" /> {/if}
+            </button>
+            <button onclick={handleBeli} class="flex-1 bg-[#C4161C] active:scale-95 transition-transform text-white font-bold py-3.5 rounded-lg text-sm shadow-md uppercase tracking-wide">Beli Sekarang</button>
         </div>
     
     {:else}
