@@ -34,46 +34,33 @@
         return list;
     });
 
-    // --- EFFECT: DETEKSI PERUBAHAN SLUG ---
     $effect(() => {
         if (slug) {
-            // STEP 1: RESET STATE AGAR PRODUK LAMA HILANG (PENTING!)
             product = null; 
             isLoading = true;
             activeIndex = 0;
-            
-            // STEP 2: LOAD DATA BARU
             loadProductDetail();
         }
     });
 
-    // --- LOAD DATA UTAMA (DENGAN CACHE) ---
     async function loadProductDetail() {
         const CACHE_KEY = `product_${slug}`;
-
         try {
-            // 1. Cek Cache Session Storage
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
                 product = JSON.parse(cached);
                 isLoading = false;
-                // Load data pendukung di background
                 loadBranches();
                 loadRelatedProducts();
                 window.scrollTo({ top: 0, behavior: 'instant' });
-                return; // Stop, pakai data cache saja biar ngebut
+                return; 
             }
 
-            // 2. Jika tidak ada cache, Fetch API
             const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
             if (res.ok) {
                 const raw = await res.json();
                 product = raw;
-                
-                // Simpan ke Cache
                 sessionStorage.setItem(CACHE_KEY, JSON.stringify(raw));
-                
-                // Load pendukung
                 loadBranches();
                 loadRelatedProducts();
                 window.scrollTo({ top: 0, behavior: 'instant' });
@@ -101,34 +88,35 @@
             if (res.ok) {
                 const allProducts = await res.json();
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
-                // Filter produk lain
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
         } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
     }
 
-    // --- WA BUTTON ---
+    // --- WA FORMAT SESUAI SCREENSHOT ---
     function handleBeli() {
         if (!selectedBranch || !selectedBranch.whatsapp) {
             showBranchModal = true;
             return;
         }
         const phone = selectedBranch.whatsapp.replace(/\D/g, '').replace(/^0/, '62');
-        const urlProduk = window.location.href; // URL Halaman ini (Slug)
+        const urlProduk = window.location.href; // URL Halaman ini
         
-        // Agar muncul Card di WA, URL harus ditaruh di dalam pesan.
-        // WA akan otomatis mengambil og:image dari <svelte:head>
+        // FORMAT PESAN PERSIS SEPERTI SCREENSHOT BAGINDA:
+        // 1. URL Paling Atas (Agar muncul Card Preview)
+        // 2. Enter 2x
+        // 3. Hallo...
         const pesan = 
-            `Halo kak, saya mau pesan produk ini:\n` +
-            `${urlProduk}\n\n` +  // Link ditaruh di atas agar ter-detect previewnya
-            `Nama: *${product.name}*\n` +
-            `Harga: ${formatRupiah(product.price)}\n\n` +
-            `Mohon info stok di cabang ${selectedBranch.name}. Terima kasih.`;
+            `${urlProduk}\n\n` + 
+            `Hallo "${selectedBranch.name}"\n` +
+            `Saya Ingin Pesan "${product.name}"\n` +
+            `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
+            `Bisa diproses secepatnya?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
 
-    // --- UI HELPERS ---
+    // --- UTILS ---
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
@@ -155,16 +143,21 @@
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
+    
+    // Logic Dimensi (-) jika kosong
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
-        if (!p && !l && !t) return null;
-        return `${p}x${l}x${t}`;
+        // Cek jika ada salah satu data, tampilkan. Jika semua 0/null/undefined, return "-"
+        if (p || l || t) {
+            return `${p || 0}x${l || 0}x${t || 0}cm`;
+        }
+        return "-";
     }
 </script>
 
 <svelte:head>
     <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
-    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:description" content="Pesan produk rohani terbaik di Narwastu" />
     <meta property="og:image" content={product ? optimizeCloudinary(product.image_1_url, 600) : ''} />
     <meta property="og:url" content={$page.url.href} />
     <meta property="og:type" content="product" />
@@ -211,7 +204,7 @@
                             <button 
                                 onclick={() => scrollTo(i)} 
                                 class="relative w-14 h-14 rounded overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white 
-                                {activeIndex === i ? 'opacity-100' : 'opacity-50 hover:opacity-100'}"
+                                {activeIndex === i ? 'opacity-100' : 'opacity-40 hover:opacity-100'}"
                             >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item, 150)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
@@ -249,27 +242,25 @@
 
                     <div class="mb-8">
                         <div class="grid grid-cols-4 gap-4 text-center md:text-left">
-                            {#if product.sku}
-                                <div class="flex flex-col">
-                                    <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">SKU</span>
-                                    <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{product.sku}</span>
-                                </div>
-                            {/if}
+                            <div class="flex flex-col">
+                                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">SKU</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{product.sku || "-"}</span>
+                            </div>
                             
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Berat</span>
-                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.weight || 0}gr</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">
+                                    {product.weight ? product.weight + 'gr' : '-'}
+                                </span>
                             </div>
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Stok</span>
-                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.stock}</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700">{product.stock || "-"}</span>
                             </div>
-                            {#if formatDimensi()}
-                                <div class="flex flex-col">
-                                    <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Dimensi</span>
-                                    <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{formatDimensi()}</span>
-                                </div>
-                            {/if}
+                            <div class="flex flex-col">
+                                <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">Dimensi</span>
+                                <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{formatDimensi()}</span>
+                            </div>
                         </div>
                     </div>
 
