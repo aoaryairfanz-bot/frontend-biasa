@@ -3,19 +3,20 @@
     import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
     import { page } from '$app/stores'; 
-    import { XIcon, ShoppingBagIcon, AlertCircleIcon } from 'svelte-feather-icons'; 
+    import { XIcon, ShoppingBagIcon, AlertCircleIcon, RefreshCwIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
 
     // --- STATE ---
     let banners = $state([]);
     let products = $state([]); 
-    let branches = $state([]); // Data Cabang
+    let branches = $state([]); 
     
     // State Loading
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
-    let loadingBranches = $state(true); // Loading khusus cabang
+    let loadingBranches = $state(true);
+    let errorMsg = $state(""); // Untuk nampung error jika ada
     
     let showBranchModal = $state(false);
     let selectedProduct = $state(null);
@@ -90,43 +91,54 @@
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v3'; // Versi cache baru
-        
-        // 1. Cek Cache
+        // Cek Cache dulu
+        const CACHE_KEY = 'home_data_v4'; // Ganti versi cache biar fresh
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                if (data.banners) { banners = data.banners; loadingBanner = false; }
-                if (data.products) { products = data.products; loadingProducts = false; }
-                // Kita tidak cache cabang di sini agar selalu fresh saat modal dibuka
-            } catch (e) {}
+                if (data.banners && Array.isArray(data.banners)) { banners = data.banners; loadingBanner = false; }
+                if (data.products && Array.isArray(data.products)) { products = data.products; loadingProducts = false; }
+            } catch (e) { console.error("Cache Error", e); }
         }
 
-        // 2. Fetch Fresh Data (Parallel)
+        // Fetch Data Fresh
         fetchBannerData();
         fetchProductData();
-        // Fetch cabang di background agar siap saat modal dibuka
         fetchBranchData();
     });
 
     async function fetchBannerData() {
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/banners`); // Hapus slash akhir
+            // FIX: Tambahkan Slash di akhir ('/banners/')
+            const res = await fetch(`${PUBLIC_API_URL}/banners/`); 
             if (res.ok) {
-                const raw = await res.json();
+                let raw = await res.json();
+                console.log("Banner Data:", raw); // DEBUG
+
+                // Safety Check: Pastikan Array
+                if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
+
                 banners = raw.map(b => ({ ...b, image_url: optimizeUrl(b.image_url, 800) }));
                 updateCache();
+            } else {
+                console.error("Banner Failed:", res.status);
             }
-        } catch (e) {} 
+        } catch (e) { console.error("Banner Network Error", e); } 
         finally { loadingBanner = false; }
     }
 
     async function fetchProductData() {
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products`); // Hapus slash akhir
+            // FIX: Tambahkan Slash di akhir ('/products/')
+            const res = await fetch(`${PUBLIC_API_URL}/products/`);
             if (res.ok) {
-                const raw = await res.json();
+                let raw = await res.json();
+                console.log("Product Data:", raw); // DEBUG
+
+                // Safety Check: Pastikan Array
+                if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
+
                 products = raw.map(p => ({
                     ...p,
                     image_1_url: optimizeUrl(p.image_1_url, 250),
@@ -134,21 +146,26 @@
                     image_3_url: optimizeUrl(p.image_3_url, 250)
                 }));
                 updateCache();
+            } else {
+                console.error("Product Failed:", res.status);
+                errorMsg = "Gagal memuat produk. Cek koneksi.";
             }
-        } catch (e) {}
+        } catch (e) { 
+            console.error("Product Network Error", e);
+            errorMsg = "Terjadi kesalahan jaringan.";
+        }
         finally { loadingProducts = false; }
     }
 
-    // --- PERBAIKAN FETCH CABANG ---
     async function fetchBranchData() {
         loadingBranches = true;
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/branches`); // Pastikan endpoint benar
+            // FIX: Tambahkan Slash di akhir ('/branches/')
+            const res = await fetch(`${PUBLIC_API_URL}/branches/`); 
             if (res.ok) {
-                const raw = await res.json();
-                console.log("Data Cabang:", raw); // Debugging di Console
-
-                // Handle jika formatnya Array atau Object { data: [] }
+                let raw = await res.json();
+                
+                // Safety Check: Pastikan Array
                 let list = [];
                 if (Array.isArray(raw)) {
                     list = raw;
@@ -156,21 +173,15 @@
                     list = raw.data;
                 }
 
-                // Filter hanya yang aktif & punya WA
-                branches = list.filter(b => (b.is_active === true || b.is_active === 1) && b.whatsapp);
-            } else {
-                console.error("Gagal load cabang", res.status);
+                branches = list.filter(b => (b.is_active === true || b.is_active === 1 || b.is_active === "1") && b.whatsapp);
             }
-        } catch (e) {
-            console.error("Error cabang", e);
-        } finally {
-            loadingBranches = false;
-        }
+        } catch (e) { console.error("Branch Error", e); } 
+        finally { loadingBranches = false; }
     }
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v3', JSON.stringify({ banners, products }));
+            sessionStorage.setItem('home_data_v4', JSON.stringify({ banners, products }));
         }
     }
 
@@ -190,10 +201,7 @@
     function openBuyModal(product) {
         selectedProduct = product;
         showBranchModal = true;
-        // Jika cabang kosong (misal fetch awal gagal), coba fetch lagi saat modal dibuka
-        if (branches.length === 0) {
-            fetchBranchData();
-        }
+        if (branches.length === 0) fetchBranchData();
     }
 
     function getBranchWALink(branchName, branchPhone) {
@@ -230,16 +238,11 @@
                 <div class="relative w-full aspect-[2.5/1] rounded-2xl overflow-hidden shadow-sm bg-gray-100 mx-auto max-w-[1200px]">
                     {#each displayBanners as banner, i}
                         {#if i === currentIndex}
-                            <div 
-                                in:fly={{ x: 300, duration: 400 }} 
-                                out:fly={{ x: -300, duration: 400 }} 
-                                class="absolute inset-0 w-full h-full"
-                            >
+                            <div in:fly={{ x: 300, duration: 400 }} out:fly={{ x: -300, duration: 400 }} class="absolute inset-0 w-full h-full">
                                 <img 
                                     srcset="{optimizeUrl(banner.image_url, 480)} 480w, {optimizeUrl(banner.image_url, 800)} 800w, {optimizeUrl(banner.image_url, 1200)} 1200w"
                                     sizes="(max-width: 600px) 480px, (max-width: 1000px) 800px, 1200px"
-                                    src={optimizeUrl(banner.image_url, 1200)} 
-                                    alt="Promo" 
+                                    src={optimizeUrl(banner.image_url, 1200)} alt="Promo" 
                                     class="w-full h-full object-cover" 
                                     fetchpriority="high" loading="eager" decoding="async"
                                 />
@@ -270,12 +273,7 @@
                     {#each subcategories as sub}
                         <a href="/katalog?search={sub}" class="flex-shrink-0 flex flex-col items-center gap-2 w-[70px] md:w-20 cursor-pointer group snap-start">
                             <div class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden group-hover:border-yellow-400 transition-colors">
-                                <img 
-                                    src={getSubIcon(sub)} 
-                                    alt={sub} 
-                                    class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" 
-                                    loading="lazy" width="36" height="36"
-                                />
+                                <img src={getSubIcon(sub)} alt={sub} class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" loading="lazy" width="36" height="36"/>
                             </div>
                             <span class="text-[9px] md:text-[10px] font-bold text-gray-500 text-center leading-tight line-clamp-2 w-full uppercase tracking-tighter">{sub}</span>
                         </a>
@@ -302,6 +300,8 @@
                                 <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
                             </div>
                         {/each}
+                    {:else if rowProducts.length === 0 && !loadingProducts}
+                        <div class="w-full text-center text-xs text-gray-400 py-4 italic">Belum ada produk</div>
                     {:else}
                         {#each rowProducts as item (item.id)}
                             <article class="snap-start flex-shrink-0 w-[150px] md:w-[190px] flex flex-col group bg-white">
@@ -340,30 +340,31 @@
         </section>
     {/snippet}
 
-    {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
-    {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
-    {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
+    {#if errorMsg}
+        <div class="text-center text-red-500 py-10 flex flex-col items-center">
+            <AlertCircleIcon />
+            <p class="mt-2 text-sm">{errorMsg}</p>
+            <button onclick={() => window.location.reload()} class="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold flex items-center gap-2"><RefreshCwIcon size="14"/> Refresh Halaman</button>
+        </div>
+    {:else}
+        {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
+        {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
+        {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
+    {/if}
 
     {#if showBranchModal}
         <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
             <div class="bg-white w-[95%] md:w-full md:max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                
                 <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50">
                     <div>
                         <h3 class="text-base font-bold text-gray-800">Pilih Cabang</h3>
                         <p class="text-[10px] text-gray-500 truncate max-w-[200px]">Item: <span class="text-[#C4161C]">{selectedProduct?.name}</span></p>
                     </div>
-                    <button onclick={() => showBranchModal = false} class="p-1.5 text-gray-400 hover:text-red-500 bg-gray-100 rounded-full">
-                        <XIcon size="18" />
-                    </button>
+                    <button onclick={() => showBranchModal = false} class="p-1.5 text-gray-400 hover:text-red-500 bg-gray-100 rounded-full"><XIcon size="18" /></button>
                 </div>
-
                 <div class="p-4 overflow-y-auto custom-scrollbar bg-white">
                     {#if loadingBranches && branches.length === 0}
-                        <div class="text-center py-6 text-gray-400">
-                            <ShoppingBagIcon size="24" class="mx-auto mb-2 opacity-50 animate-pulse"/>
-                            <p class="text-xs mt-2">Sedang memuat data cabang...</p>
-                        </div>
+                        <div class="text-center py-6 text-gray-400"><ShoppingBagIcon size="24" class="mx-auto mb-2 opacity-50 animate-pulse"/><p class="text-xs mt-2">Sedang memuat data cabang...</p></div>
                     {:else if branches.length === 0}
                         <div class="text-center py-6 text-red-400 flex flex-col items-center">
                             <AlertCircleIcon size="24" class="mb-2"/>
@@ -373,14 +374,8 @@
                     {:else}
                         <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
                             {#each branches as branch}
-                                <a 
-                                    href={getBranchWALink(branch.name, branch.whatsapp)} 
-                                    target="_blank"
-                                    class="flex items-center justify-center text-center px-2 py-3 rounded-lg border border-gray-200 hover:border-[#C4161C] hover:bg-red-50 active:scale-95 transition-all duration-150 group h-full"
-                                >
-                                    <span class="text-[11px] font-bold text-gray-700 group-hover:text-[#C4161C] leading-tight">
-                                        {branch.name.replace('Cabang ', '').replace('Narwastu ', '')}
-                                    </span>
+                                <a href={getBranchWALink(branch.name, branch.whatsapp)} target="_blank" class="flex items-center justify-center text-center px-2 py-3 rounded-lg border border-gray-200 hover:border-[#C4161C] hover:bg-red-50 active:scale-95 transition-all duration-150 group h-full">
+                                    <span class="text-[11px] font-bold text-gray-700 group-hover:text-[#C4161C] leading-tight">{branch.name.replace('Cabang ', '').replace('Narwastu ', '')}</span>
                                 </a>
                             {/each}
                         </div>
