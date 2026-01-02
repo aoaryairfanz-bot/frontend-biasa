@@ -9,10 +9,10 @@
 
     // --- STATE ---
     let banners = $state([]);
-    let products = $state([]); // Semua produk mentah
+    let products = $state([]); 
     let branches = $state([]); 
     
-    // State UI Independen (Agar bisa loading terpisah)
+    // State UI (Loading Terpisah)
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
     
@@ -20,31 +20,34 @@
     let selectedProduct = $state(null);
     let currentIndex = $state(0);
 
-    // --- DERIVED DATA (Otomatis terhitung saat 'products' terisi) ---
-    // 1. Banner (Ambil 5)
+    // --- DERIVED DATA ---
+    // 1. Banner (Max 5)
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // 2. Kategori Unik
+    // 2. Kategori Unik (Dari Data Produk)
     const subcategories = $derived.by(() => {
         const unique = new Set();
         if (products.length > 0) {
             for (const s of products) {
                 const cat = s.subcategory || s.category;
-                if (cat) unique.add(cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase());
+                if (cat) {
+                    // Format Title Case
+                    const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
+                    unique.add(formatted);
+                }
             }
         }
         return Array.from(unique).sort();
     });
 
-    // 3. Produk Terbaru (10 item pertama dari array produk, asumsi urut ID/Waktu)
+    // 3. Produk Terbaru (10 item)
     const latestProducts = $derived(products.slice(0, 10));
 
-    // 4. Best Seller (Logika unik per kategori)
+    // 4. Best Seller (Unik per kategori)
     const bestSellers = $derived.by(() => {
         if (products.length === 0) return [];
         const sellers = [];
         const processedSubs = new Set();
-        // Sort manual harga tinggi ke rendah sebagai simulasi popularitas
         const sorted = [...products].sort((a, b) => b.price - a.price);
         for (const p of sorted) {
             const sub = p.subcategory || p.category || "Lainnya";
@@ -66,33 +69,50 @@
             .slice(0, 10);
     });
 
+    // --- ICON MAP (JANGAN DIUBAH) ---
+    const ICON_MAP = {
+        'lilin': 'https://cdn-icons-png.flaticon.com/512/10632/10632653.png',
+        'rosario': 'https://cdn-icons-png.flaticon.com/512/3552/3552047.png',
+        'salib': 'https://cdn-icons-png.flaticon.com/512/18635/18635997.png',
+        'patung': 'https://cdn-icons-png.flaticon.com/512/15119/15119407.png',
+        'alkitab': 'https://cdn-icons-png.flaticon.com/512/2142/2142712.png',
+        'gelang': 'https://cdn-icons-png.flaticon.com/512/3985/3985817.png',
+        'natal': 'https://cdn-icons-png.flaticon.com/512/6279/6279334.png',
+        'buku': 'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
+        'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png'
+    };
+
+    // Helper ambil icon (Cari di map, kalau tidak ada pakai default)
+    const getSubIcon = (name) => {
+        if (!name) return kategoriImg;
+        // Cari keyword yang cocok di ICON_MAP
+        const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
+        return key ? ICON_MAP[key] : kategoriImg;
+    };
+
     // --- OPTIMASI GAMBAR ---
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
         return url.replace("/upload/", `/upload/f_auto,q_auto:eco,w_${width}/`);
     };
 
-    // --- FETCH DATA (PARALLEL & INDEPENDENT) ---
+    // --- FETCH DATA (PARALLEL) ---
     onMount(async () => {
         const CACHE_KEY = 'home_data_v2';
         
-        // 1. Load Cache Dulu (Agar Instan jika pernah dibuka)
+        // 1. Cek Cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 if (data.banners) { banners = data.banners; loadingBanner = false; }
                 if (data.products) { products = data.products; loadingProducts = false; }
-            } catch (e) { console.error("Cache invalid", e); }
+            } catch (e) {}
         }
 
-        // 2. Fetch Banner (Jalan sendiri, tidak tunggu produk)
+        // 2. Fetch Fresh Data
         fetchBannerData();
-
-        // 3. Fetch Produk (Jalan sendiri, prioritas konten)
         fetchProductData();
-
-        // 4. Fetch Cabang (Background, tidak blocking UI)
         fetchBranchData();
     });
 
@@ -101,11 +121,10 @@
             const res = await fetch(`${PUBLIC_API_URL}/banners/`);
             if (res.ok) {
                 const raw = await res.json();
-                // Pre-optimize URL banner agar siap tampil
                 banners = raw.map(b => ({ ...b, image_url: optimizeUrl(b.image_url, 800) }));
                 updateCache();
             }
-        } catch (e) { console.error("Banner err", e); } 
+        } catch (e) {} 
         finally { loadingBanner = false; }
     }
 
@@ -114,16 +133,15 @@
             const res = await fetch(`${PUBLIC_API_URL}/products/`);
             if (res.ok) {
                 const raw = await res.json();
-                // Pre-optimize gambar produk
                 products = raw.map(p => ({
                     ...p,
-                    image_1_url: optimizeUrl(p.image_1_url, 250), // Kecilkan di awal
+                    image_1_url: optimizeUrl(p.image_1_url, 250),
                     image_2_url: optimizeUrl(p.image_2_url, 250),
                     image_3_url: optimizeUrl(p.image_3_url, 250)
                 }));
                 updateCache();
             }
-        } catch (e) { console.error("Product err", e); }
+        } catch (e) {}
         finally { loadingProducts = false; }
     }
 
@@ -155,7 +173,7 @@
         });
     }
 
-    // --- UTILS ---
+    // --- ACTIONS ---
     function openBuyModal(product) {
         selectedProduct = product;
         showBranchModal = true;
@@ -236,7 +254,12 @@
                     {#each subcategories as sub}
                         <a href="/katalog?search={sub}" class="flex-shrink-0 flex flex-col items-center gap-2 w-[70px] md:w-20 cursor-pointer group snap-start">
                             <div class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden group-hover:border-yellow-400 transition-colors">
-                                <img src={kategoriImg} alt={sub} class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" loading="lazy" width="36" height="36"/>
+                                <img 
+                                    src={getSubIcon(sub)} 
+                                    alt={sub} 
+                                    class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" 
+                                    loading="lazy" width="36" height="36"
+                                />
                             </div>
                             <span class="text-[9px] md:text-[10px] font-bold text-gray-500 text-center leading-tight line-clamp-2 w-full uppercase tracking-tighter">{sub}</span>
                         </a>
@@ -302,7 +325,6 @@
     {/snippet}
 
     {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
-    
     {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
     {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
 
