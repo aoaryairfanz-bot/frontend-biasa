@@ -10,8 +10,8 @@
     let slug = $derived(data.slug);
 
     // --- STATE ---
-    let product = $state(null); // Produk utama (diisi via fetch)
-    let isLoading = $state(true); // Loading state utama
+    let product = $state(null); 
+    let isLoading = $state(true); 
     
     let relatedProducts = $state([]);       
     let isLoadingRelated = $state(true);
@@ -38,28 +38,23 @@
         return list;
     });
 
-    // --- EFFECT: Jalankan saat slug berubah ---
+    // --- EFFECT ---
     $effect(() => {
         if (slug) {
-            loadProductDetail(); // 1. Load Produk Utama
+            loadProductDetail();
         }
     });
 
-    // --- 1. LOAD PRODUK UTAMA (PENTING) ---
+    // --- LOAD DATA ---
     async function loadProductDetail() {
         isLoading = true;
         try {
-            // Fetch detail produk berdasarkan slug
             const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
             if (res.ok) {
                 const raw = await res.json();
                 product = raw;
-                
-                // Setelah produk dapat, load data pendukung
                 loadBranches();
                 loadRelatedProducts();
-                
-                // Reset UI scroll
                 activeIndex = 0;
                 window.scrollTo({ top: 0, behavior: 'instant' });
             } else {
@@ -72,7 +67,6 @@
         }
     }
 
-    // --- 2. LOAD CABANG ---
     async function loadBranches() {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
@@ -90,14 +84,12 @@
         showBranchModal = false; 
     }
 
-    // --- 3. LOAD RELATED ---
     async function loadRelatedProducts() {
         isLoadingRelated = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             if (res.ok) {
                 const allProducts = await res.json();
-                // Filter produk lain (bukan produk yg sedang dilihat)
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
@@ -153,7 +145,7 @@
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
         if (!p && !l && !t) return null;
-        return `${p} x ${l} x ${t} cm`;
+        return `${p}x${l}x${t}`; // Format lebih pendek agar muat
     }
 </script>
 
@@ -172,10 +164,10 @@
     
     {#if product}
         <div class="border-b border-gray-100 mb-4 bg-white sticky top-0 z-20">
-            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate flex items-center">
-                <button onclick={() => history.back()} class="mr-3 text-gray-800 hover:text-[#C4161C] font-bold">❮ KEMBALI</button>
-                <span class="mx-1">/</span> 
-                <span class="text-gray-900 truncate">{product.name}</span>
+            <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-500 truncate">
+                <a href="/" class="hover:text-[#C4161C]">Home</a> <span class="mx-1">/</span> 
+                <a href="/katalog" class="hover:text-[#C4161C]">Katalog</a> <span class="mx-1">/</span> 
+                <span class="text-gray-900">{product.name}</span>
             </div>
         </div>
 
@@ -235,29 +227,26 @@
                     </div>
 
                     <div class="mb-6 bg-gray-50 rounded-lg p-3 border border-gray-100">
-                        <div class="grid grid-cols-2 gap-y-2 gap-x-4">
+                        <div class="grid grid-cols-4 gap-2 text-center md:text-left">
                             {#if product.sku}
                                 <div class="flex flex-col">
-                                    <span class="text-[10px] text-gray-400 font-bold uppercase">SKU</span>
-                                    <span class="text-xs font-bold text-gray-700 truncate">{product.sku}</span>
+                                    <span class="text-[9px] text-gray-400 font-bold uppercase">SKU</span>
+                                    <span class="text-[10px] md:text-xs font-bold text-gray-700 truncate">{product.sku}</span>
                                 </div>
                             {/if}
+                            
                             <div class="flex flex-col">
-                                <span class="text-[10px] text-gray-400 font-bold uppercase">Kategori</span>
-                                <span class="text-xs font-bold text-gray-700 truncate capitalize">{product.subcategory || "-"}</span>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase">Berat</span>
+                                <span class="text-[10px] md:text-xs font-bold text-gray-700">{product.weight || 0}gr</span>
                             </div>
                             <div class="flex flex-col">
-                                <span class="text-[10px] text-gray-400 font-bold uppercase">Berat</span>
-                                <span class="text-xs font-bold text-gray-700">{product.weight || 0} gr</span>
-                            </div>
-                            <div class="flex flex-col">
-                                <span class="text-[10px] text-gray-400 font-bold uppercase">Stok</span>
-                                <span class="text-xs font-bold text-gray-700">{product.stock} pcs</span>
+                                <span class="text-[9px] text-gray-400 font-bold uppercase">Stok</span>
+                                <span class="text-[10px] md:text-xs font-bold text-gray-700">{product.stock}</span>
                             </div>
                             {#if formatDimensi()}
-                                <div class="flex flex-col col-span-2">
-                                    <span class="text-[10px] text-gray-400 font-bold uppercase">Dimensi</span>
-                                    <span class="text-xs font-bold text-gray-700">{formatDimensi()}</span>
+                                <div class="flex flex-col">
+                                    <span class="text-[9px] text-gray-400 font-bold uppercase">Dimensi</span>
+                                    <span class="text-[10px] md:text-xs font-bold text-gray-700 truncate">{formatDimensi()}</span>
                                 </div>
                             {/if}
                         </div>
