@@ -145,13 +145,13 @@
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8">
     
-    <div class="container mx-auto px-4 max-w-[1200px] mb-6 md:mb-8 bg-white py-2">
-        <div class="flex justify-center border-b border-gray-200">
-            <div class="flex gap-4 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-4 md:mb-6 bg-white py-2">
+        <div class="flex justify-center">
+            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-auto justify-center px-2">
                 {#each filterOptions as opt}
                 <button 
                     onclick={() => changeCategory(opt.id)}
-                    class="pb-3 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-4 whitespace-nowrap flex-shrink-0
+                    class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-2 whitespace-nowrap flex-shrink-0
                     {filter === opt.id ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
                 >
                     {opt.label}
