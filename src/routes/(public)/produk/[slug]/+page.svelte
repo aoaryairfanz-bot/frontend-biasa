@@ -15,11 +15,10 @@
     let isDescriptionExpanded = $state(false);
     let isCopied = $state(false);
 
-    // --- STATE CABANG (Hanya Satu: Pusat) ---
-    // Default fallback sambil nunggu fetch
+    // --- STATE CABANG (DEFAULT ALAMAT LENGKAP) ---
     let selectedBranch = $state({
         name: "Narwastu Store Yogyakarta",
-        address: "Jl. Beo No.40, Demangan Baru, Yogyakarta",
+        address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281",
         whatsapp: "628112936949" 
     });
 
@@ -38,7 +37,7 @@
     $effect(() => {
         if (product) {
             activeIndex = 0;
-            loadCentralBranch(); // Ambil data pusat terbaru
+            loadCentralBranch();
             loadRelatedProducts();
         }
     });
@@ -51,11 +50,16 @@
                 const raw = await res.json();
                 let list = Array.isArray(raw) ? raw : (raw.data || []);
                 
-                // Cari ID 1 (Pusat) atau fallback ke yang punya WA
-                const pusat = list.find(b => b.id === 1) || list.find(b => b.whatsapp);
+                // Prioritaskan ID 1 (Pusat)
+                const pusat = list.find(b => b.id === 1);
                 
                 if (pusat) {
-                    selectedBranch = pusat;
+                    // Update data dari API, tapi format alamat di database mungkin lebih pendek
+                    // Jika Baginda ingin alamat tetap panjang sesuai request, 
+                    // kita hanya ambil nomor WA-nya saja dari DB, alamat pakai default state.
+                    selectedBranch.whatsapp = pusat.whatsapp;
+                    // selectedBranch.name = pusat.name; // Opsional: timpa nama dari DB
+                    // selectedBranch.address = pusat.address; // Opsional: timpa alamat dari DB
                 }
             }
         } catch (error) { console.error("Gagal load cabang pusat:", error); }
@@ -90,7 +94,6 @@
     }
 
     function handleBeli() {
-        // Gunakan nomor dari selectedBranch (hasil fetch DB)
         const phone = (selectedBranch.whatsapp || "628112936949").replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
         
@@ -211,12 +214,9 @@
                     </div>
 
                     <div class="mb-6">
-                        <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Lokasi Stok</h3>
-                        <div class="w-full flex items-center gap-3 py-2 bg-gray-50 rounded-lg px-3 border border-gray-100">
-                            <div class="flex-1 min-w-0">
-                                <div class="text-xs font-bold text-gray-800 truncate">{selectedBranch.name}</div>
-                                <div class="text-[10px] text-gray-500 truncate">{selectedBranch.address}</div>
-                            </div>
+                        <div class="flex flex-col gap-1">
+                            <div class="text-xs font-bold text-gray-800">{selectedBranch.name}</div>
+                            <div class="text-[10px] text-gray-500 leading-relaxed">{selectedBranch.address}</div>
                         </div>
                     </div>
 
@@ -301,5 +301,4 @@
             </div>
         </div>
     {/if}
-
-    </div>
+</div>
