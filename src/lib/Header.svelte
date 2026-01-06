@@ -1,7 +1,8 @@
 <script>
     import { page } from '$app/stores';
     import { goto } from '$app/navigation'; 
-    import { HomeIcon, ShoppingBagIcon, MapPinIcon, HelpCircleIcon, SearchIcon } from 'svelte-feather-icons';
+    // Hamba tambahkan MessageCircleIcon, hapus icon yang tidak perlu jika ada
+    import { HomeIcon, ShoppingBagIcon, MessageCircleIcon, HelpCircleIcon, SearchIcon } from 'svelte-feather-icons';
 
     let searchQuery = $state(""); 
 
@@ -20,7 +21,8 @@
     const mobileMenus = [
         { label: 'Home', link: '/', icon: HomeIcon },
         { label: 'Produk', link: '/katalog', icon: ShoppingBagIcon },
-        { label: 'Cabang', link: '/cabang', icon: MapPinIcon },
+        // PERUBAHAN HANYA DISINI: Menggunakan MessageCircleIcon (Simpel & Bukan Telpon)
+        { label: 'Kontak', link: '/kontak', icon: MessageCircleIcon },
         { label: 'Bantuan', link: '/bantuan', icon: HelpCircleIcon }
     ];
 
@@ -80,7 +82,7 @@
                     Katalog
                 </a>
                 <a href="/kontak" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/Kontak') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
+                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/kontak') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
                     Kontak
                 </a>
                 <a href="/bantuan" 
