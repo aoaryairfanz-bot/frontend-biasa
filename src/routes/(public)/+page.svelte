@@ -73,7 +73,14 @@
         'gelang': 'https://cdn-icons-png.flaticon.com/512/3985/3985817.png',
         'natal': 'https://cdn-icons-png.flaticon.com/512/6279/6279334.png',
         'buku': 'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png'
+        'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png',
+        // --- TAMBAHAN BARU ---
+        'anggur': 'https://cdn-icons-png.flaticon.com/512/3354/3354362.png', // Mewakili Anggur & Hosti
+        'hosti': 'https://cdn-icons-png.flaticon.com/512/3354/3354362.png',  // Backup jika kata kuncinya Hosti
+        'pernak': 'https://cdn-icons-png.flaticon.com/512/679/679720.png',   // Mewakili Pernak-Pernik
+        'hd': 'https://cdn-icons-png.flaticon.com/512/10696/10696942.png',   // Mewakili HD (Hiasan Dinding/Bingkai)
+        'liontin': 'https://cdn-icons-png.flaticon.com/512/5903/5903272.png',// Mewakili Liontin
+        'gantungan': 'https://cdn-icons-png.flaticon.com/512/3596/3596009.png' // Mewakili Gantungan
     };
 
     const getSubIcon = (name) => {
