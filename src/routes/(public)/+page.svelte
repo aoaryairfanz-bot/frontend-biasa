@@ -6,22 +6,21 @@
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
 
-    // --- KONFIGURASI NOMOR WA PUSAT (JOGJA) ---
-    // Hamba ambil dari footer Baginda tadi: +62 811-2936-949
-    const CENTRAL_PHONE = "628112936949"; 
-
     // --- STATE ---
     let banners = $state([]);
     let products = $state([]); 
     
-    // State Loading (Hanya Banner & Produk, Cabang dihapus)
+    // Default Nomor WA (Jaga-jaga jika fetch gagal)
+    let centralPhone = $state("628112936949"); 
+
+    // State Loading
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
     let errorMsg = $state("");
     
     let currentIndex = $state(0);
 
-    // --- DERIVED DATA (LOGIKA TETAP SAMA) ---
+    // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
 
     const subcategories = $derived.by(() => {
@@ -77,7 +76,6 @@
         'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png'
     };
 
-    // Logika Hemat Icon (Resize ke 128px)
     const getSubIcon = (name) => {
         if (!name) return kategoriImg;
         const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
@@ -88,7 +86,6 @@
         return url;
     };
 
-    // Logika Optimasi Gambar (Responsive Quality)
     const optimizeUrl = (url, width, quality = 'eco') => {
         if (!url || !url.includes("cloudinary.com")) return url;
         return url.replace("/upload/", `/upload/f_auto,q_auto:${quality},w_${width}/`);
@@ -96,7 +93,6 @@
 
     // --- FETCH DATA ---
     onMount(async () => {
-        // Caching Logic (Tetap dipertahankan biar ngebut)
         const CACHE_KEY = 'home_data_v5'; 
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
@@ -104,13 +100,39 @@
                 const data = JSON.parse(cached);
                 if (data.banners && Array.isArray(data.banners)) { banners = data.banners; loadingBanner = false; }
                 if (data.products && Array.isArray(data.products)) { products = data.products; loadingProducts = false; }
+                // Restore phone from cache if exists
+                if (data.phone) centralPhone = data.phone;
             } catch (e) { console.error("Cache Error", e); }
         }
 
         fetchBannerData();
         fetchProductData();
-        // Fetch Branch dihapus karena sudah tidak pakai modal
+        fetchCentralPhone(); // Ambil nomor WA dari DB
     });
+
+    async function fetchCentralPhone() {
+        try {
+            // Ambil semua cabang, lalu cari ID 1
+            const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
+            if (res.ok) {
+                const raw = await res.json();
+                let list = [];
+                if (Array.isArray(raw)) list = raw;
+                else if (raw.data && Array.isArray(raw.data)) list = raw.data;
+
+                // Cari Cabang Pusat (ID 1) atau fallback ke cabang pertama yg punya WA
+                const pusat = list.find(b => b.id === 1) || list.find(b => b.whatsapp);
+                
+                if (pusat && pusat.whatsapp) {
+                    // Bersihkan nomor (hapus spasi/dash/+)
+                    centralPhone = pusat.whatsapp.replace(/\D/g, '');
+                    updateCache(); // Simpan nomor baru ke cache
+                }
+            }
+        } catch (e) {
+            console.error("Gagal ambil no WA pusat:", e);
+        }
+    }
 
     async function fetchBannerData() {
         try {
@@ -133,7 +155,6 @@
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
                 products = raw.map(p => ({
                     ...p,
-                    // Tetap pakai ECO untuk thumbnail biar ringan di HP & Laptop
                     image_1_url: optimizeUrl(p.image_1_url, 250, 'eco'),
                     image_2_url: optimizeUrl(p.image_2_url, 250, 'eco'),
                     image_3_url: optimizeUrl(p.image_3_url, 250, 'eco')
@@ -148,7 +169,11 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v5', JSON.stringify({ banners, products }));
+            sessionStorage.setItem('home_data_v5', JSON.stringify({ 
+                banners, 
+                products,
+                phone: centralPhone // Cache nomor telpon juga
+            }));
         }
     }
 
@@ -161,13 +186,12 @@
         });
     }
 
-    // --- LOGIKA BARU: BELI LANGSUNG WA ---
+    // --- LOGIKA BELI: Pakai centralPhone dari DB ---
     function buyNow(product) {
         const sku = product.sku || '-';
         const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${product.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(product.price)}\n\nApakah stok masih tersedia?`;
         
-        // Langsung buka WhatsApp
-        const url = `https://wa.me/${CENTRAL_PHONE}?text=${encodeURIComponent(text)}`;
+        const url = `https://wa.me/${centralPhone}?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
     }
 
@@ -313,7 +337,7 @@
         {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
     {/if}
 
-    </div>
+</div>
 
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
