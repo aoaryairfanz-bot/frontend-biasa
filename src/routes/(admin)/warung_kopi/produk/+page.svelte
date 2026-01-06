@@ -16,7 +16,7 @@
     // --- 2. STATE HALAMAN ---
     let searchQuery = $state('');
     let activeCategory = $state('all'); 
-    let viewMode = $state('grid'); 
+    let viewMode = $state('list'); 
     let currentPage = $state(1);
     let itemsPerPage = 10; 
     let isImporting = $state(false);
