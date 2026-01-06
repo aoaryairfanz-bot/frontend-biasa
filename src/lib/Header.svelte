@@ -1,137 +1,127 @@
 <script>
-    import { page } from '$app/stores';
-    import { goto } from '$app/navigation'; 
-    // Hamba tambahkan MessageCircleIcon, hapus icon yang tidak perlu jika ada
-    import { HomeIcon, ShoppingBagIcon, MessageCircleIcon, HelpCircleIcon, SearchIcon } from 'svelte-feather-icons';
+    import { onMount } from 'svelte';
+    import { PUBLIC_API_URL } from '$env/static/public';
+    import { SearchIcon, MessageCircleIcon, CreditCardIcon, TruckIcon, HelpCircleIcon } from 'svelte-feather-icons';
 
-    let searchQuery = $state(""); 
+    // --- STATE NOMOR WA ---
+    let adminPhone = $state("628112936949"); 
 
-    function handleSearch() {
-        if (searchQuery.trim() !== "") {
-            goto(`/katalog?search=${encodeURIComponent(searchQuery)}`);
+    // --- FETCH DATA DARI DB ---
+    onMount(async () => {
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
+            if (res.ok) {
+                const raw = await res.json();
+                let list = Array.isArray(raw) ? raw : (raw.data || []);
+                
+                // Cari ID 1 (Pusat) atau fallback ke yang punya WA
+                const pusat = list.find(b => b.id === 1) || list.find(b => b.whatsapp);
+                
+                if (pusat && pusat.whatsapp) {
+                    adminPhone = pusat.whatsapp.replace(/\D/g, ''); 
+                }
+            }
+        } catch (error) {
+            console.error("Gagal ambil nomor admin:", error);
         }
-    }
+    });
 
-    function handleKeyDown(event) {
-        if (event.key === 'Enter') {
-            handleSearch();
+    const steps = [
+        {
+            icon: SearchIcon,
+            title: "1. Pilih Produk",
+            desc: "Cari produk di katalog web. Pilih barang yang Baginda inginkan."
+        },
+        {
+            icon: MessageCircleIcon,
+            title: "2. Klik Tombol Beli",
+            desc: "Klik 'Beli', Baginda akan langsung diarahkan ke WhatsApp Admin kami."
+        },
+        {
+            icon: CreditCardIcon,
+            title: "3. Pembayaran",
+            desc: "Admin akan info total harga + ongkir. Lakukan transfer sesuai instruksi."
+        },
+        {
+            icon: TruckIcon,
+            title: "4. Pengiriman",
+            desc: "Pesanan diproses dan dikirim ke alamat tujuan setelah pembayaran lunas."
         }
-    }
-
-    const mobileMenus = [
-        { label: 'Home', link: '/', icon: HomeIcon },
-        { label: 'Produk', link: '/katalog', icon: ShoppingBagIcon },
-        // PERUBAHAN HANYA DISINI: Menggunakan MessageCircleIcon (Simpel & Bukan Telpon)
-        { label: 'Kontak', link: '/kontak', icon: MessageCircleIcon },
-        { label: 'Bantuan', link: '/bantuan', icon: HelpCircleIcon }
     ];
 
-    // OPTIMASI LOGO EXTREME
-    // w_64: Lebar 64px (Cukup untuk tampilan 32px di layar retina)
-    // q_auto:eco: Kompresi kualitas ekonomi (sangat kecil KB)
-    // f_auto: Format otomatis (WebP/AVIF)
-    const logoUrl = "https://res.cloudinary.com/dqyztrelw/image/upload/w_64,q_auto:eco,f_auto/v1766051198/favicon_jgz09p.png";
+    const infos = [
+        {
+            title: "Metode Pembayaran",
+            desc: "Transfer Bank (BCA, Mandiri, BRI)."
+        },
+        {
+            title: "Jasa Pengiriman",
+            desc: "JNE, J&T, SiCepat, dan Cargo untuk barang besar."
+        },
+        {
+            title: "Retur Barang",
+            desc: "Wajib menyertakan Video Unboxing untuk klaim kerusakan."
+        }
+    ];
 </script>
 
-<header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100 font-sans">
-    <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 md:gap-4">
-        
-        <a href="/" class="flex items-center gap-2 flex-shrink-0 group" aria-label="Homepage">
-            <div class="relative w-6 h-6 md:w-8 md:h-8">
-                <img 
-                    src={logoUrl} 
-                    alt="Narwastu Logo" 
-                    width="32" 
-                    height="32"
-                    class="w-full h-full object-contain transition-transform duration-500 group-hover:scale-105" 
-                />
-            </div>
-            
-            <span 
-                class="text-lg md:text-xl tracking-tight hidden lg:block bg-gradient-to-r from-[#8B0000] via-[#FFD700] to-[#C4161C] bg-clip-text text-transparent drop-shadow-sm animate-gradient italic"
-                style="font-family: 'Cinzel', serif; font-weight: 700; background-size: 200% auto; text-transform: lowercase;"
-            >
-                narwastu
-            </span>
-        </a>
+<svelte:head>
+    <title>Cara Pemesanan - Narwastu</title>
+</svelte:head>
 
-        <div class="flex-grow max-w-xl md:mx-4">
-            <div class="relative">
-                <input 
-                    type="text" 
-                    bind:value={searchQuery}
-                    onkeydown={handleKeyDown}
-                    placeholder="Cari..." 
-                    class="w-full bg-gray-50 text-gray-700 text-xs md:text-sm py-2 px-4 pl-4 pr-9 border border-transparent focus:outline-none focus:ring-1 focus:ring-[#C4161C]/20 focus:border-[#C4161C] focus:bg-white transition-all duration-300 rounded-lg"
-                    aria-label="Kolom Pencarian"
-                />
-                <button 
-                    onclick={handleSearch}
-                    aria-label="Tombol Cari"
-                    class="absolute right-1 top-1/2 transform -translate-y-1/2 p-1.5 bg-[#C4161C] text-white hover:bg-[#a51318] transition shadow-sm active:scale-90 rounded-md"
-                >
-                    <SearchIcon size="14" />
-                </button>
+<div class="min-h-screen bg-white font-sans pb-20 pt-8 text-gray-800">
+    
+    <div class="container mx-auto px-4 max-w-xl">
+
+        <div class="mb-8 text-center md:text-left">
+            <h1 class="text-xl md:text-2xl font-bold text-gray-900 mb-2">Panduan Belanja</h1>
+            <p class="text-sm text-gray-500">Ikuti langkah mudah berikut untuk memesan produk.</p>
+        </div>
+
+        <div class="space-y-6">
+            {#each steps as step, i}
+                <div class="flex gap-4 items-start">
+                    <div class="w-10 h-10 rounded-full bg-gray-100 flex items-center justify-center text-gray-700 shrink-0 mt-1">
+                        <step.icon size="18" />
+                    </div>
+                    
+                    <div class="pb-6 border-b border-gray-100 w-full last:border-0">
+                        <h3 class="font-bold text-gray-900 text-sm mb-1">{step.title}</h3>
+                        <p class="text-sm text-gray-500 leading-relaxed">
+                            {step.desc}
+                        </p>
+                    </div>
+                </div>
+            {/each}
+        </div>
+
+        <div class="mt-10 pt-8 border-t border-gray-100">
+            <h2 class="text-lg font-bold text-gray-900 mb-6 flex items-center gap-2">
+                <HelpCircleIcon size="18" />
+                Info Lainnya
+            </h2>
+
+            <div class="space-y-4">
+                {#each infos as info}
+                    <div class="bg-gray-50 rounded-lg p-4">
+                        <h4 class="text-sm font-bold text-gray-800 mb-1">
+                            {info.title}
+                        </h4>
+                        <p class="text-sm text-gray-600">
+                            {info.desc}
+                        </p>
+                    </div>
+                {/each}
             </div>
         </div>
 
-        <nav class="hidden md:flex items-center flex-shrink-0 gap-6">
-            <div class="flex gap-6 text-sm">
-                <a href="/katalog" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    Katalog
-                </a>
-                <a href="/kontak" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/kontak') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    Kontak
-                </a>
-                <a href="/bantuan" 
-                   class="transition-all duration-300 {$page.url.pathname.startsWith('/bantuan') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    Cara Pesan
-                </a>
-            </div>
-
-            <div class="h-5 w-px bg-gray-200"></div>
-
-            <a href="/katalog" class="text-xs font-bold text-white bg-[#C4161C] hover:bg-[#a51318] px-5 py-2 rounded-lg transition-all shadow-md active:scale-95">
-                Belanja
+        <div class="mt-10">
+            <a href="https://wa.me/{adminPhone}" target="_blank" class="flex items-center justify-center gap-2 w-full py-3 bg-[#25D366] hover:bg-[#20bd5a] text-white font-bold rounded-lg transition-all shadow-sm active:scale-95 text-sm">
+                <MessageCircleIcon size="18" />
+                Chat Admin Sekarang
             </a>
-        </nav>
-    </div>
-</header>
+            <p class="text-xs text-gray-400 text-center mt-3">Butuh bantuan cepat? Hubungi kami via WhatsApp.</p>
+        </div>
 
-<div class="md:hidden fixed bottom-4 left-4 right-4 bg-white/90 backdrop-blur-lg border border-gray-100 px-6 py-3 z-50 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]">
-    <div class="flex justify-between items-center">
-        {#each mobileMenus as menu}
-            <a href={menu.link} class="flex flex-col items-center gap-1 group transition-all duration-300" aria-label={menu.label}>
-                <div class="p-1 transition-transform duration-300 group-active:scale-75 {($page.url.pathname === menu.link || ($page.url.pathname.startsWith(menu.link) && menu.link !== '/')) ? 'text-[#C4161C]' : 'text-gray-400'}">
-                    <menu.icon size="20" />
-                </div>
-                <span class="text-[10px] font-medium transition-colors {($page.url.pathname === menu.link || ($page.url.pathname.startsWith(menu.link) && menu.link !== '/')) ? 'text-[#C4161C] font-bold' : 'text-gray-400'}">
-                    {menu.label}
-                </span>
-            </a>
-        {/each}
     </div>
 </div>
-
-<style>
-    @keyframes gradient {
-        0% { background-position: 0% center; }
-        50% { background-position: 100% center; }
-        100% { background-position: 0% center; }
-    }
-    .animate-gradient {
-        animation: gradient 4s ease infinite;
-    }
-    
-    :global(body) {
-        padding-bottom: 90px;
-        background-color: #ffffff;
-    }
-    @media (min-width: 768px) {
-        :global(body) {
-            padding-bottom: 0;
-        }
-    }
-</style>
