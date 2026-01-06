@@ -79,9 +79,9 @@
                    class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
                     Katalog
                 </a>
-                <a href="/cabang" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/cabang') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
-                    Cabang
+                <a href="/kontak" 
+                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/Kontak') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
+                    Kontak
                 </a>
                 <a href="/bantuan" 
                    class="transition-all duration-300 {$page.url.pathname.startsWith('/bantuan') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
