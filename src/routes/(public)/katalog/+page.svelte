@@ -8,7 +8,6 @@
     let { data } = $props();
 
     // --- STATE ---
-    // Inisialisasi dengan array kosong agar aman
     let products = $state([]); 
     let isLoading = $state(true); 
 
@@ -26,20 +25,15 @@
                     isLoading = false; 
                 }
             }
-        } catch (e) {
-            console.error("Cache error", e);
-        }
+        } catch (e) { console.error("Cache error", e); }
 
         // 2. Fetch Data Terbaru dari API
         try {
-            // Pastikan URL benar
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             
             if (res.ok) {
                 const result = await res.json();
-                console.log("Data API:", result); // Debugging
-
-                // --- SAFETY CHECK: Pastikan format data benar ---
+                
                 let finalData = [];
                 if (Array.isArray(result)) {
                     finalData = result;
@@ -49,13 +43,10 @@
                     finalData = result.data;
                 }
 
-                // Hanya update jika ada data
                 if (finalData.length > 0) {
                     products = finalData;
                     sessionStorage.setItem(CACHE_KEY, JSON.stringify(finalData));
                 }
-            } else {
-                console.error("API Error:", res.status);
             }
         } catch (e) {
             console.error("Gagal update produk:", e);
@@ -64,16 +55,17 @@
         }
     });
 
-    // --- OPTIMASI 2: Constants & Utils ---
-    const NON_BOOK_KEYWORDS = ['lilin', 'salib', 'rosario', 'gelang', 'kalung', 'patung', 'tempat lilin', 'goa', 'perjamuan', 'hosti', 'anggur', 'piala', 'kain', 'kotak', 'alas', 'dw0', 'kcb'];
-    const BOOK_KEYWORDS = ['alkitab', 'book', 'buku', 'kitab', 'injil', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah'];
+    // --- LOGIKA KATEGORI BARU ---
+    // Kata kunci untuk membedakan jenis produk
+    const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
+    const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'doa', 'novena'];
+    // Sisanya dianggap Perlengkapan Rohani (Salib, Patung, Lilin, dll)
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
     const optimizeUrl = (url, width) => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // w_200 + q_auto:eco = Super Ringan
         return url.replace("/upload/", `/upload/q_auto:eco,f_auto,w_${width}/`);
     };
 
@@ -82,21 +74,24 @@
     let currentPage = $state(1);
     const itemsPerPage = 15;
 
+    // Opsi Filter Baru Sesuai Permintaan
     const filterOptions = [
         { id: 'all', label: 'Semua' },
-        { id: 'nonbook', label: 'Perlengkapan Rohani' },
-        { id: 'book', label: 'Buku & Alkitab' }
+        { id: 'rohani', label: 'Perlengkapan Rohani' },
+        { id: 'alkitab', label: 'Alkitab' },
+        { id: 'buku', label: 'Buku' }
     ];
 
     // --- SEARCH ---
     let searchTerm = $derived($page.url.searchParams.get('search')?.toLowerCase() || "");
 
-    // --- FILTERING ---
+    // --- FILTERING LOGIC ---
     let allFilteredProducts = $derived.by(() => {
         if (!products || products.length === 0) return [];
 
         let result = products;
 
+        // 1. Filter Search
         if (searchTerm) {
             result = result.filter(p => 
                 (p.name && p.name.toLowerCase().includes(searchTerm)) || 
@@ -104,13 +99,19 @@
             );
         }
 
+        // 2. Filter Kategori
         if (filter !== 'all') {
             result = result.filter(item => {
-                const text = ((item.name || "") + " " + (item.slug || "")).toLowerCase();
-                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw));
+                const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
                 
-                if (filter === 'book') return isBook;
-                return !isBook || NON_BOOK_KEYWORDS.some(kw => text.includes(kw));
+                const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
+                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; // Buku tapi bukan Alkitab
+
+                if (filter === 'alkitab') return isBible;
+                if (filter === 'buku') return isBook;
+                if (filter === 'rohani') return !isBible && !isBook; // Bukan Buku & Bukan Alkitab
+                
+                return true;
             });
         }
         return result;
@@ -127,6 +128,7 @@
     function changeCategory(id) {
         filter = id;
         currentPage = 1;
+        // Reset scroll ke atas list produk (bukan paling atas halaman agar header tdk hilang)
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
 
@@ -143,11 +145,15 @@
     }
 </script>
 
+<svelte:head>
+    <title>Katalog Produk - Narwastu</title>
+</svelte:head>
+
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8">
     
-    <div class="container mx-auto px-4 max-w-[1200px] mb-4 md:mb-6 bg-white py-2">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-4 md:mb-6 bg-white py-2 sticky top-0 z-10 shadow-sm md:shadow-none">
         <div class="flex justify-center">
-            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-auto justify-center px-2">
+            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-2">
                 {#each filterOptions as opt}
                 <button 
                     onclick={() => changeCategory(opt.id)}
@@ -178,10 +184,12 @@
                         <span class="text-[#C4161C] font-bold not-italic truncate">"{searchTerm}"</span>
                         <a href="/katalog" class="ml-2 text-blue-600 hover:underline font-medium flex-shrink-0">Hapus</a>
                     {:else}
-                        <span class="font-bold">Semua Produk</span>
+                        <span class="font-bold uppercase tracking-wide text-gray-700">
+                            {filterOptions.find(f => f.id === filter)?.label}
+                        </span>
                     {/if}
                 </div>
-                <div class="flex-shrink-0">
+                <div class="flex-shrink-0 font-medium">
                     Hal {currentPage}/{totalPages}
                 </div>
             </div>
