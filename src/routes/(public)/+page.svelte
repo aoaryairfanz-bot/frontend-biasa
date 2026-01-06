@@ -1,28 +1,27 @@
 <script>
     import { onMount } from 'svelte';
-    import { fly, fade } from 'svelte/transition'; 
+    import { fly } from 'svelte/transition'; 
     import { browser } from '$app/environment';
-    import { page } from '$app/stores'; 
-    import { XIcon, ShoppingBagIcon, AlertCircleIcon, RefreshCwIcon } from 'svelte-feather-icons'; 
+    import { XIcon, AlertCircleIcon, RefreshCwIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
+
+    // --- KONFIGURASI NOMOR WA PUSAT (JOGJA) ---
+    // Hamba ambil dari footer Baginda tadi: +62 811-2936-949
+    const CENTRAL_PHONE = "628112936949"; 
 
     // --- STATE ---
     let banners = $state([]);
     let products = $state([]); 
-    let branches = $state([]); 
     
-    // State Loading
+    // State Loading (Hanya Banner & Produk, Cabang dihapus)
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
-    let loadingBranches = $state(true);
     let errorMsg = $state("");
     
-    let showBranchModal = $state(false);
-    let selectedProduct = $state(null);
     let currentIndex = $state(0);
 
-    // --- DERIVED DATA ---
+    // --- DERIVED DATA (LOGIKA TETAP SAMA) ---
     const displayBanners = $derived(banners.slice(0, 5));
 
     const subcategories = $derived.by(() => {
@@ -78,38 +77,26 @@
         'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png'
     };
 
-    // const getSubIcon = (name) => {
-    //     if (!name) return kategoriImg;
-    //     const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
-    //     return key ? ICON_MAP[key] : kategoriImg;
-    // };
-    // --- KODE BARU (Auto Resize 128px) ---
+    // Logika Hemat Icon (Resize ke 128px)
     const getSubIcon = (name) => {
         if (!name) return kategoriImg;
-        
         const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
         const url = key ? ICON_MAP[key] : kategoriImg;
-
-        // JURUS HEMAT:
-        // Jika URL dari flaticon (ada angka 512), kita paksa ganti jadi 128.
-        // Ukuran file akan turun drastis dari ~50KB menjadi ~3KB saja!
         if (typeof url === 'string' && url.includes('/512/')) {
             return url.replace('/512/', '/128/');
         }
-        
         return url;
     };
 
-    // --- PERBAIKAN 1: UPDATE FUNGSI OPTIMIZE ---
-    // Sekarang menerima parameter 'quality' (default: eco)
+    // Logika Optimasi Gambar (Responsive Quality)
     const optimizeUrl = (url, width, quality = 'eco') => {
         if (!url || !url.includes("cloudinary.com")) return url;
-        // Kita ganti q_auto:eco menjadi q_auto:good atau best jika diminta
         return url.replace("/upload/", `/upload/f_auto,q_auto:${quality},w_${width}/`);
     };
 
     // --- FETCH DATA ---
     onMount(async () => {
+        // Caching Logic (Tetap dipertahankan biar ngebut)
         const CACHE_KEY = 'home_data_v5'; 
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
@@ -122,7 +109,7 @@
 
         fetchBannerData();
         fetchProductData();
-        fetchBranchData();
+        // Fetch Branch dihapus karena sudah tidak pakai modal
     });
 
     async function fetchBannerData() {
@@ -131,7 +118,6 @@
             if (res.ok) {
                 let raw = await res.json();
                 if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
-                // Kita simpan URL asli di state, optimize nanti di HTML agar dinamis
                 banners = raw; 
                 updateCache();
             }
@@ -147,7 +133,7 @@
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
                 products = raw.map(p => ({
                     ...p,
-                    // Produk kecil pakai 'eco' biar cepat
+                    // Tetap pakai ECO untuk thumbnail biar ringan di HP & Laptop
                     image_1_url: optimizeUrl(p.image_1_url, 250, 'eco'),
                     image_2_url: optimizeUrl(p.image_2_url, 250, 'eco'),
                     image_3_url: optimizeUrl(p.image_3_url, 250, 'eco')
@@ -158,29 +144,6 @@
             }
         } catch (e) { errorMsg = "Kesalahan jaringan."; }
         finally { loadingProducts = false; }
-    }
-
-    async function fetchBranchData() {
-        loadingBranches = true;
-        try {
-            const url = `${PUBLIC_API_URL}/branches?include_inactive=false`;
-            const res = await fetch(url);
-            
-            if (res.ok) {
-                const raw = await res.json();
-                let list = [];
-                if (Array.isArray(raw)) {
-                    list = raw;
-                } else if (raw.data && Array.isArray(raw.data)) {
-                    list = raw.data;
-                }
-                branches = list.filter(b => b.whatsapp);
-            }
-        } catch (e) {
-            console.error("Error cabang:", e);
-        } finally {
-            loadingBranches = false;
-        }
     }
 
     function updateCache() {
@@ -198,18 +161,14 @@
         });
     }
 
-    function openBuyModal(product) {
-        selectedProduct = product;
-        showBranchModal = true;
-        if (branches.length === 0) fetchBranchData();
-    }
-
-    function getBranchWALink(branchName, branchPhone) {
-        if (!selectedProduct) return '#';
-        const cleanPhone = branchPhone.replace(/\D/g, '');
-        const sku = selectedProduct.sku || '-';
-        const text = `Hallo "${branchName}"\nSaya Ingin Pesan "${selectedProduct.name}"\nSKU: "${sku}"\nBisa di proses secepatnya?`;
-        return `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
+    // --- LOGIKA BARU: BELI LANGSUNG WA ---
+    function buyNow(product) {
+        const sku = product.sku || '-';
+        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${product.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(product.price)}\n\nApakah stok masih tersedia?`;
+        
+        // Langsung buka WhatsApp
+        const url = `https://wa.me/${CENTRAL_PHONE}?text=${encodeURIComponent(text)}`;
+        window.open(url, '_blank');
     }
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
@@ -239,12 +198,12 @@
                                 <img 
                                     srcset="
                                         {optimizeUrl(banner.image_url, 640, 'eco')} 640w, 
-                                        {optimizeUrl(banner.image_url, 1000, 'good')} 1000w, 
-                                        {optimizeUrl(banner.image_url, 1600, 'good')} 1600w,
+                                        {optimizeUrl(banner.image_url, 960, 'eco')} 960w, 
+                                        {optimizeUrl(banner.image_url, 1400, 'good')} 1400w,
                                         {optimizeUrl(banner.image_url, 2000, 'good')} 2000w
                                     "
                                     sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
-                                    src={optimizeUrl(banner.image_url, 1600, 'good')} 
+                                    src={optimizeUrl(banner.image_url, 1400, 'good')} 
                                     alt="Promo" 
                                     class="w-full h-full object-cover" 
                                     fetchpriority="high" loading="eager" decoding="async"
@@ -330,7 +289,7 @@
                                             <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.strike_price)}</span>
                                         {/if}
                                     </div>
-                                    <button onclick={() => openBuyModal(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
+                                    <button onclick={() => buyNow(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
                                         Beli
                                     </button>
                                 </div>
@@ -354,39 +313,7 @@
         {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
     {/if}
 
-    {#if showBranchModal}
-        <div class="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/70 backdrop-blur-sm">
-            <div class="bg-white w-[95%] md:w-full md:max-w-4xl rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[80vh]">
-                <div class="flex justify-between items-center px-4 py-3 border-b border-gray-100 bg-gray-50">
-                    <div>
-                        <h3 class="text-base font-bold text-gray-800">Pilih Cabang</h3>
-                        <p class="text-[10px] text-gray-500 truncate max-w-[200px]">Item: <span class="text-[#C4161C]">{selectedProduct?.name}</span></p>
-                    </div>
-                    <button onclick={() => showBranchModal = false} class="p-1.5 text-gray-400 hover:text-red-500 bg-gray-100 rounded-full"><XIcon size="18" /></button>
-                </div>
-                <div class="p-4 overflow-y-auto custom-scrollbar bg-white">
-                    {#if loadingBranches && branches.length === 0}
-                        <div class="text-center py-6 text-gray-400"><ShoppingBagIcon size="24" class="mx-auto mb-2 opacity-50 animate-pulse"/><p class="text-xs mt-2">Sedang memuat data cabang...</p></div>
-                    {:else if branches.length === 0}
-                        <div class="text-center py-6 text-red-400 flex flex-col items-center">
-                            <AlertCircleIcon size="24" class="mb-2"/>
-                            <p class="text-xs">Maaf, data cabang tidak ditemukan.</p>
-                            <button onclick={fetchBranchData} class="mt-2 text-xs text-blue-500 underline">Coba Lagi</button>
-                        </div>
-                    {:else}
-                        <div class="grid grid-cols-2 md:grid-cols-4 gap-2">
-                            {#each branches as branch}
-                                <a href={getBranchWALink(branch.name, branch.whatsapp)} target="_blank" class="flex items-center justify-center text-center px-2 py-3 rounded-lg border border-gray-200 hover:border-[#C4161C] hover:bg-red-50 active:scale-95 transition-all duration-150 group h-full">
-                                    <span class="text-[11px] font-bold text-gray-700 group-hover:text-[#C4161C] leading-tight">{branch.name.replace('Cabang ', '').replace('Narwastu ', '')}</span>
-                                </a>
-                            {/each}
-                        </div>
-                    {/if}
-                </div>
-            </div>
-        </div>
-    {/if}
-</div>
+    </div>
 
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
