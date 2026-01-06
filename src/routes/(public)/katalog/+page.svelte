@@ -56,10 +56,8 @@
     });
 
     // --- LOGIKA KATEGORI BARU ---
-    // Kata kunci untuk membedakan jenis produk
     const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
     const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'doa', 'novena'];
-    // Sisanya dianggap Perlengkapan Rohani (Salib, Patung, Lilin, dll)
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
@@ -74,7 +72,6 @@
     let currentPage = $state(1);
     const itemsPerPage = 15;
 
-    // Opsi Filter Baru Sesuai Permintaan
     const filterOptions = [
         { id: 'all', label: 'Semua' },
         { id: 'rohani', label: 'Perlengkapan Rohani' },
@@ -91,7 +88,6 @@
 
         let result = products;
 
-        // 1. Filter Search
         if (searchTerm) {
             result = result.filter(p => 
                 (p.name && p.name.toLowerCase().includes(searchTerm)) || 
@@ -99,17 +95,16 @@
             );
         }
 
-        // 2. Filter Kategori
         if (filter !== 'all') {
             result = result.filter(item => {
                 const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
                 
                 const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
-                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; // Buku tapi bukan Alkitab
+                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; 
 
                 if (filter === 'alkitab') return isBible;
                 if (filter === 'buku') return isBook;
-                if (filter === 'rohani') return !isBible && !isBook; // Bukan Buku & Bukan Alkitab
+                if (filter === 'rohani') return !isBible && !isBook; 
                 
                 return true;
             });
@@ -128,7 +123,6 @@
     function changeCategory(id) {
         filter = id;
         currentPage = 1;
-        // Reset scroll ke atas list produk (bukan paling atas halaman agar header tdk hilang)
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
 
@@ -151,13 +145,13 @@
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8">
     
-    <div class="container mx-auto px-4 max-w-[1200px] mb-4 md:mb-6 bg-white py-2 sticky top-0 z-10 shadow-sm md:shadow-none">
-        <div class="flex justify-center">
-            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-2">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-2 bg-white sticky top-0 z-20">
+        <div class="flex justify-center w-full">
+            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-center px-2 pb-2 items-center">
                 {#each filterOptions as opt}
                 <button 
                     onclick={() => changeCategory(opt.id)}
-                    class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-2 whitespace-nowrap flex-shrink-0
+                    class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-2 whitespace-nowrap flex-shrink-0 px-2
                     {filter === opt.id ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
                 >
                     {opt.label}
@@ -167,7 +161,7 @@
         </div>
     </div>
 
-    <div class="container mx-auto px-4 max-w-[1200px]">
+    <div class="container mx-auto px-4 max-w-[1200px] pt-4">
         
         {#if isLoading && products.length === 0}
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-3 md:gap-5 mb-10">
@@ -177,19 +171,16 @@
             </div>
 
         {:else if visibleProducts.length > 0}
-            <div class="flex flex-row justify-between items-center mb-4 gap-2 text-[10px] md:text-xs text-gray-500 border-b border-gray-50 pb-2">
+            <div class="flex flex-row justify-between items-center mb-4 gap-2 text-[10px] md:text-xs text-gray-500 pb-2">
                 <div class="flex items-center gap-1.5 min-w-0 overflow-hidden">
                     {#if searchTerm}
                         <span class="whitespace-nowrap flex-shrink-0">Hasil:</span>
                         <span class="text-[#C4161C] font-bold not-italic truncate">"{searchTerm}"</span>
                         <a href="/katalog" class="ml-2 text-blue-600 hover:underline font-medium flex-shrink-0">Hapus</a>
                     {:else}
-                        <span class="font-bold uppercase tracking-wide text-gray-700">
-                            {filterOptions.find(f => f.id === filter)?.label}
-                        </span>
-                    {/if}
+                        {/if}
                 </div>
-                <div class="flex-shrink-0 font-medium">
+                <div class="flex-shrink-0 font-medium opacity-50">
                     Hal {currentPage}/{totalPages}
                 </div>
             </div>
