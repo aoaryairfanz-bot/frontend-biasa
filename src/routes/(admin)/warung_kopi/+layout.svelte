@@ -15,12 +15,17 @@
     let { children } = $props();
     
     let userRole = $state('');
+    let fullName = $state(''); // Variabel untuk Nama Lengkap
     let token = $state('');
     let isSidebarOpen = $state(false); // State untuk Sidebar Mobile
 
     onMount(() => {
         token = localStorage.getItem('token');
         userRole = localStorage.getItem('role') || 'Admin';
+        
+        // AMBIL DATA FULL NAME DARI LOCALSTORAGE
+        // Jika tidak ada, fallback ke 'Admin'
+        fullName = localStorage.getItem('full_name') || 'Admin';
 
         if (!token) {
             goto('/login');
@@ -31,6 +36,7 @@
         if(confirm("Apakah Anda yakin ingin keluar?")) {
             localStorage.removeItem('token');
             localStorage.removeItem('role');
+            localStorage.removeItem('full_name'); // Hapus full_name juga saat logout
             goto('/login');
         }
     }
@@ -141,7 +147,7 @@
 
                 <div>
                     <h1 class="text-lg lg:text-2xl font-bold text-gray-800 truncate max-w-[200px] lg:max-w-none">
-                        Halo, <span class="text-blue-600">{userRole}</span>! 👋
+                        Halo, <span class="text-blue-600">{fullName}</span>! 👋
                     </h1>
                     <p class="hidden lg:block text-sm text-gray-500 mt-1">Berikut ringkasan aktivitas toko Anda hari ini.</p>
                 </div>
@@ -160,14 +166,14 @@
 
                 <div class="flex items-center gap-3 pl-3 lg:pl-6 border-l border-gray-100">
                     <div class="hidden lg:block text-right">
-                        <div class="text-sm font-bold text-gray-800 capitalize">{userRole}</div>
+                        <div class="text-sm font-bold text-gray-800 capitalize">{fullName}</div>
                         <div class="text-xs text-green-500 font-medium flex items-center justify-end gap-1">
                             <span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>
                             Online
                         </div>
                     </div>
                     <div class="w-9 h-9 lg:w-11 lg:h-11 rounded-full bg-gray-200 border-2 border-blue-50 overflow-hidden cursor-pointer hover:border-blue-200 transition">
-                        <img src="https://ui-avatars.com/api/?name={userRole}&background=0D8ABC&color=fff" alt="Profile" class="w-full h-full object-cover" />
+                        <img src="https://ui-avatars.com/api/?name={fullName}&background=0D8ABC&color=fff" alt="Profile" class="w-full h-full object-cover" />
                     </div>
                 </div>
             </div>

@@ -101,7 +101,7 @@
 
 <div class="space-y-8">
     
-    <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
+    <!-- <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
         <div>
             <h2 class="text-xl font-bold text-gray-800">Overview Toko</h2>
             <p class="text-sm text-gray-500">Ringkasan data Narwastu Store.</p>
@@ -110,7 +110,7 @@
             <ArrowUpRightIcon size="16" />
             <span>Refresh Data</span>
         </button>
-    </div>
+    </div> -->
 
     <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
         {#each stats as stat}
