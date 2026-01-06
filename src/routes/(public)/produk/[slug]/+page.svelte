@@ -2,26 +2,26 @@
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { Share2Icon, CheckIcon } from 'svelte-feather-icons';
+    import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA DARI +page.js (Agar SEO & WA Jalan)
+    // AMBIL DATA DARI +page.js
     let { data } = $props();
     let product = $derived(data.product); 
     let slug = $derived(data.slug);
 
-    // --- STATE PENDUKUNG (Tetap di-load di client biar cepat) ---
+    // --- STATE PENDUKUNG ---
     let relatedProducts = $state([]);       
     let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
-    let isCopied = $state(false); // Untuk tombol share
+    let isCopied = $state(false);
 
-    // --- STATE CABANG ---
+    // --- STATE CABANG (Hanya Satu: Pusat) ---
+    // Default fallback sambil nunggu fetch
     let selectedBranch = $state({
         name: "Narwastu Store Yogyakarta",
-        address: "Sedang memuat lokasi...",
-        whatsapp: ""
+        address: "Jl. Beo No.40, Demangan Baru, Yogyakarta",
+        whatsapp: "628112936949" 
     });
-    let branchList = $state([]); 
-    let showBranchModal = $state(false); 
 
     // --- SLIDER STATE ---
     let activeIndex = $state(0); 
@@ -35,27 +35,30 @@
     });
 
     // --- EFFECT ---
-    // Setiap kali produk berubah (pindah halaman), reset UI & load pendukung
     $effect(() => {
         if (product) {
             activeIndex = 0;
-            loadBranches();
+            loadCentralBranch(); // Ambil data pusat terbaru
             loadRelatedProducts();
-            // Scroll ke atas otomatis ditangani SvelteKit saat navigasi
         }
     });
 
     // --- LOAD DATA CLIENT SIDE ---
-    async function loadBranches() {
+    async function loadCentralBranch() {
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
                 const raw = await res.json();
                 let list = Array.isArray(raw) ? raw : (raw.data || []);
-                branchList = list;
-                if (branchList.length > 0) selectedBranch = branchList[0];
+                
+                // Cari ID 1 (Pusat) atau fallback ke yang punya WA
+                const pusat = list.find(b => b.id === 1) || list.find(b => b.whatsapp);
+                
+                if (pusat) {
+                    selectedBranch = pusat;
+                }
             }
-        } catch (error) { console.error(error); }
+        } catch (error) { console.error("Gagal load cabang pusat:", error); }
     }
 
     async function loadRelatedProducts() {
@@ -87,19 +90,16 @@
     }
 
     function handleBeli() {
-        if (!selectedBranch || !selectedBranch.whatsapp) {
-            showBranchModal = true;
-            return;
-        }
-        const phone = selectedBranch.whatsapp.replace(/\D/g, '').replace(/^0/, '62');
+        // Gunakan nomor dari selectedBranch (hasil fetch DB)
+        const phone = (selectedBranch.whatsapp || "628112936949").replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
         
         const pesan = 
             `${urlProduk}\n\n` + 
-            `Hallo "${selectedBranch.name}"\n` +
+            `Hallo Admin Narwastu\n` +
             `Saya Ingin Pesan "${product.name}"\n` +
             `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
-            `Bisa diproses secepatnya?`;
+            `Apakah stok masih tersedia?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
     }
@@ -116,11 +116,6 @@
         if (!sliderRef) return;
         const newIndex = Math.round(sliderRef.scrollLeft / sliderRef.offsetWidth);
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
-    }
-
-    function selectBranch(branch) {
-        selectedBranch = branch;
-        showBranchModal = false; 
     }
 
     function optimizeCloudinary(url, width = 'auto') {
@@ -217,13 +212,12 @@
 
                     <div class="mb-6">
                         <h3 class="text-xs font-bold text-gray-400 mb-2 uppercase tracking-wider">Lokasi Stok</h3>
-                        <button onclick={() => showBranchModal = true} class="w-full flex items-center gap-3 py-2 bg-white text-left group transition-all hover:bg-gray-50 rounded-lg -ml-2 px-2">
+                        <div class="w-full flex items-center gap-3 py-2 bg-gray-50 rounded-lg px-3 border border-gray-100">
                             <div class="flex-1 min-w-0">
-                                <div class="text-xs font-bold text-gray-800 truncate group-hover:text-[#C4161C]">{selectedBranch.name}</div>
-                                <div class="text-[10px] text-gray-500 truncate">{selectedBranch.address || "Pilih lokasi..."}</div>
+                                <div class="text-xs font-bold text-gray-800 truncate">{selectedBranch.name}</div>
+                                <div class="text-[10px] text-gray-500 truncate">{selectedBranch.address}</div>
                             </div>
-                            <div class="text-[#C4161C] text-xs font-bold uppercase">Ubah</div>
-                        </button>
+                        </div>
                     </div>
 
                     <div class="mb-8">
@@ -308,22 +302,4 @@
         </div>
     {/if}
 
-    {#if showBranchModal}
-    <div class="fixed inset-0 z-[60] flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4" transition:fade={{duration:150}}>
-        <div class="bg-white w-full max-w-md rounded-t-2xl md:rounded-xl shadow-2xl overflow-hidden flex flex-col max-h-[85vh]">
-            <div class="p-4 border-b border-gray-100 flex justify-between items-center bg-white sticky top-0 z-10">
-                <h3 class="text-sm font-extrabold text-gray-800 uppercase tracking-wide">Pilih Lokasi Cabang</h3>
-                <button onclick={() => showBranchModal = false} class="p-2 text-gray-400 hover:text-[#C4161C] font-bold text-xs uppercase">Tutup</button>
-            </div>
-            <div class="overflow-y-auto p-4 flex flex-col gap-2 bg-gray-50">
-                {#each branchList as branch}
-                    <button onclick={() => selectBranch(branch)} class="w-full text-left p-3 rounded-lg border-2 transition-all bg-white shadow-sm {selectedBranch.name === branch.name ? 'border-[#C4161C] ring-1 ring-[#C4161C] bg-red-50' : 'border-white hover:border-gray-300'}">
-                        <div class="font-bold text-gray-800 uppercase text-xs tracking-tight mb-1">{branch.name.replace('Cabang ', '').replace('Narwastu ', '')}</div>
-                        <div class="text-[10px] text-gray-500 leading-snug">{branch.address}</div>
-                    </button>
-                {/each}
-            </div>
-        </div>
     </div>
-    {/if}
-</div>
