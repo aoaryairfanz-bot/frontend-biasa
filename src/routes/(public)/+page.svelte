@@ -64,22 +64,17 @@
     });
 
     // --- ICON MAP ---
-    // --- ICON MAP (GAYA HITAM / MONOKROM) ---
     const ICON_MAP = {
-        // --- KATEGORI LAMA (Tetap Hitam - Icons8) ---
-        'lilin': 'https://img.icons8.com/ios-filled/100/000000/candle.png',
-        'rosario': 'https://img.icons8.com/ios-filled/100/000000/rosary.png',
-        'salib': 'https://img.icons8.com/ios-filled/100/000000/cross.png',
-        'patung': 'https://img.icons8.com/ios-filled/100/000000/statue.png',
-        'alkitab': 'https://img.icons8.com/ios-filled/100/000000/bible.png',
-        'gelang': 'https://img.icons8.com/ios-filled/100/000000/bracelet.png',
-        'natal': 'https://img.icons8.com/ios-filled/100/000000/christmas-star.png',
-        'buku': 'https://img.icons8.com/ios-filled/100/000000/book.png',
-        'kalung': 'https://img.icons8.com/ios-filled/100/000000/necklace.png',
-        'gantungan': 'https://img.icons8.com/ios-filled/100/000000/key-chain.png', // Gantungan tetap hitam
-
-        // --- KATEGORI BARU (Sesuai Link Pilihan Baginda - Flaticon) ---
-        // Link dikonversi ke CDN resmi Flaticon agar bisa tampil sebagai gambar
+        'lilin': 'https://cdn-icons-png.flaticon.com/512/10632/10632653.png',
+        'rosario': 'https://cdn-icons-png.flaticon.com/512/3552/3552047.png',
+        'salib': 'https://cdn-icons-png.flaticon.com/512/18635/18635997.png',
+        'patung': 'https://cdn-icons-png.flaticon.com/512/15119/15119407.png',
+        'alkitab': 'https://cdn-icons-png.flaticon.com/512/2142/2142712.png',
+        'gelang': 'https://cdn-icons-png.flaticon.com/512/3985/3985817.png',
+        'natal': 'https://cdn-icons-png.flaticon.com/512/6279/6279334.png',
+        'buku': 'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
+        'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png',
+        // --- TAMBAHAN BARU ---
         'anggur': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',   // ID: 10472751 (Glass)
         'hosti': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',    // Sama dengan Anggur
         
@@ -88,7 +83,7 @@
         'figura': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   // ID: 10217777 (Figure/File)
         'hd': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       // HD/Hiasan Dinding pakai icon Figura
         
-        'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png'     // ID: 3072825 (Jewelry)
+        'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' // Mewakili Gantungan
     };
 
     const getSubIcon = (name) => {
