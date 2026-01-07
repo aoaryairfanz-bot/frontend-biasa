@@ -80,9 +80,9 @@
         
         'pernak': 'https://cdn-icons-png.flaticon.com/512/10359/10359496.png',   // ID: 10359496 (Earrings/Aksesoris)
         
-        'figura': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   // ID: 10217777 (Figure/File)
-        'hd': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       // HD/Hiasan Dinding pakai icon Figura
-        
+        'hiasan': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   // ID: 10217777 (Figure/File)
+        'dinding': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       // HD/Hiasan Dinding pakai icon Figura
+
         'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' // Mewakili Gantungan
     };
 
