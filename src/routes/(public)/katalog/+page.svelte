@@ -57,7 +57,7 @@
 
     // --- LOGIKA KATEGORI BARU ---
     const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
-    const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'doa', 'novena'];
+    const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'novena'];
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
