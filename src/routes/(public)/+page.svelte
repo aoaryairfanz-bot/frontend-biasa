@@ -82,7 +82,7 @@
         
         'hiasan': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   // ID: 10217777 (Figure/File)
         'dinding': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       // HD/Hiasan Dinding pakai icon Figura
-
+        
         'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' // Mewakili Gantungan
     };
 
@@ -344,7 +344,7 @@
     {:else}
         {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
         {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
-        {@render productRow("Promo Spesial", bestPromos, null, "", "/promo")}
+        {@render productRow("Promo Spesial", bestPromos, null, "", "/katalog?sort=promo")}
     {/if}
 
 </div>
