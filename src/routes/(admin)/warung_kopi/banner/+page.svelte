@@ -4,7 +4,7 @@
         LayersIcon, CheckCircleIcon, LoaderIcon, XIcon, UploadCloudIcon 
     } from 'svelte-feather-icons';
     import { onMount } from 'svelte';
-    import { PUBLIC_API_URL } from '$env/static/public'; // 1. Integrasi Env Cloudflare
+    import { PUBLIC_API_URL } from '$env/static/public';
 
     // --- STATE VARIABLES ---
     let activePopup = $state(null);
@@ -24,7 +24,7 @@
     let imagePreview = $state(null);
     let fileInput; 
 
-    // 2. Menggunakan URL dari Dashboard Cloudflare secara otomatis
+    // API Base URL
     const API_BASE = PUBLIC_API_URL;
 
     // --- 1. FETCH DATA (LOAD) ---
@@ -109,6 +109,31 @@
         }
     }
 
+    // --- 4. DELETE BANNER (Fitur Tambahan) ---
+    async function handleDelete(id, title) {
+        if(!confirm(`Yakin ingin menghapus banner "${title}"?`)) return;
+
+        const token = localStorage.getItem("token");
+        try {
+            const res = await fetch(`${API_BASE}/banners/${id}`, {
+                method: "DELETE",
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+
+            if (res.ok) {
+                // Hapus lokal biar cepat update UI
+                sliders = sliders.filter(s => s.id !== id);
+                if(activePopup && activePopup.id === id) activePopup = null;
+                alert("Banner berhasil dihapus.");
+            } else {
+                alert("Gagal menghapus banner.");
+            }
+        } catch (e) {
+            console.error(e);
+            alert("Error koneksi.");
+        }
+    }
+
     function resetForm() {
         formData = { title: '', link_url: '', type: 'slider', image: null };
         imagePreview = null;
@@ -136,8 +161,13 @@
         {#if isLoading}
             <div class="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
         {:else if activePopup}
-            <div class="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex flex-col md:flex-row gap-6 items-start relative overflow-hidden">
+            <div class="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex flex-col md:flex-row gap-6 items-start relative overflow-hidden group">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
+                
+                <button onclick={() => handleDelete(activePopup.id, activePopup.title)} 
+                    class="absolute top-4 right-4 bg-white text-red-500 p-2 rounded-full shadow-md hover:bg-red-50 transition z-20">
+                    <Trash2Icon size="18"/>
+                </button>
 
                 <div class="w-full md:w-64 aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden shadow-md border border-gray-200 shrink-0">
                     <img src={activePopup.image_url} alt={activePopup.title} class="w-full h-full object-cover" />
@@ -184,11 +214,15 @@
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition">
                     <div class="relative aspect-video bg-gray-200">
                         <img src={banner.image_url} alt={banner.title} class="w-full h-full object-cover" />
+                        
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <button class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition" title="Hapus">
+                            <button onclick={() => handleDelete(banner.id, banner.title)} 
+                                class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition shadow-lg" 
+                                title="Hapus Banner">
                                 <Trash2Icon size="18"/>
                             </button>
                         </div>
+
                     </div>
                     <div class="p-4">
                         <h5 class="font-bold text-gray-800 line-clamp-1" title={banner.title}>{banner.title}</h5>
