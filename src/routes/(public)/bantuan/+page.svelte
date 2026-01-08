@@ -30,17 +30,17 @@
         {
             icon: SearchIcon,
             title: "1. Pilih Produk",
-            desc: "Cari produk di katalog web. Pilih barang yang Baginda inginkan."
+            desc: "Cari produk di katalog web. Pilih barang yang diinginkan."
         },
         {
             icon: MessageCircleIcon,
             title: "2. Klik Tombol Beli",
-            desc: "Klik 'Beli', Baginda akan langsung diarahkan ke WhatsApp Admin kami."
+            desc: "Klik 'Beli', Akan langsung diarahkan ke WhatsApp Admin kami."
         },
         {
             icon: CreditCardIcon,
             title: "3. Pembayaran",
-            desc: "Admin akan info total harga + ongkir. Lakukan transfer sesuai instruksi."
+            desc: "Admin akan memberikan info total harga + ongkir. Lakukan transfer sesuai instruksi."
         },
         {
             icon: TruckIcon,
