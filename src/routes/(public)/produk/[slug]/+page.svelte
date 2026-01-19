@@ -5,30 +5,29 @@
     import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA DARI +page.js (Instant Load)
+    // AMBIL DATA
     let { data } = $props();
-    let product = $derived(data.product); 
+    
+    // --- LOGIKA HYBRID STATE (INSTANT LOAD) ---
+    let initialData = $state($page.state.productInit || data.product);
     let slug = $derived(data.slug);
 
-    // --- STATE PENDUKUNG ---
+    let fullDescription = $state(initialData?.description || ""); 
+    let product = $state(initialData);
+
+    // --- STATE LAINNYA ---
     let relatedProducts = $state([]);       
-    let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
     let isCopied = $state(false);
-
-    // --- STATE CABANG & MODAL ---
     let branches = $state([]); 
     let showBranchModal = $state(false); 
-    let selectedProduct = $state(null);
     let isLoadingBranches = $state(false);
-
-    // Default Alamat Pusat
+    
     let centralBranch = $state({
         name: "Narwastu Store Yogyakarta",
         address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281"
     });
 
-    // --- SLIDER STATE ---
     let activeIndex = $state(0); 
     let sliderRef; 
 
@@ -42,15 +41,32 @@
 
     // --- EFFECT ---
     $effect(() => {
-        if (product) {
+        if (slug) {
+            if (data.product && data.slug === slug) {
+                 product = data.product;
+            }
             activeIndex = 0;
+            loadFullProductDetails(); 
             loadBranches();
             loadRelatedProducts();
         }
     });
 
-    // --- LOAD DATA ---
+    // --- BACKGROUND FETCH ---
+    async function loadFullProductDetails() {
+        if (!product.description) {
+            try {
+                const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
+                if (res.ok) {
+                    const freshData = await res.json();
+                    product = { ...product, ...freshData };
+                }
+            } catch (e) { console.error("Background fetch error", e); }
+        }
+    }
+
     async function loadBranches() {
+        if (branches.length > 0) return;
         isLoadingBranches = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
@@ -61,12 +77,11 @@
                 const pusat = list.find(b => b.id === 1);
                 if (pusat) centralBranch = pusat; 
             }
-        } catch (error) { console.error("Gagal load cabang:", error); }
+        } catch (error) { console.error("Gagal load cabang", error); }
         finally { isLoadingBranches = false; }
     }
 
     async function loadRelatedProducts() {
-        isLoadingRelated = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             if (res.ok) {
@@ -74,7 +89,7 @@
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
-        } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
+        } catch (error) { console.error(error); }
     }
 
     // --- ACTIONS ---
@@ -93,20 +108,25 @@
         }
     }
 
-    function openBuyModal() {
-        showBranchModal = true;
-    }
+    function openBuyModal() { showBranchModal = true; }
 
+    // --- PERBAIKAN FITUR CHAT WA ---
     function chatBranch(branchPhone) {
         if (!branchPhone) return;
+        
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
         
+        // Tambahkan Link Gambar Langsung agar Admin bisa klik lihat gambar
+        const urlGambar = product.image_1_url; 
+
         const pesan = 
-            `${urlProduk}\n\n` + 
             `Hallo Admin Narwastu\n` +
-            `Saya Ingin Pesan "${product.name}"\n` +
-            `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
+            `Saya tertarik dengan produk ini:\n\n` +
+            `*${product.name}*\n` +
+            `Harga: ${formatRupiah(product.price)}\n` +
+            `Link Produk: ${urlProduk}\n` +
+            `Foto Produk: ${urlGambar}\n\n` + // <-- Tambahan Link Gambar
             `Apakah stok masih tersedia di cabang ini?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
@@ -123,14 +143,10 @@
     function handleScroll() {
         if (!sliderRef) return;
         const newIndex = Math.round(sliderRef.scrollLeft / sliderRef.offsetWidth);
-        if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
+        if (newIndex !== activeIndex) activeIndex = newIndex;
     }
 
-    // --- NO COMPRESSION (CLEAN URL) ---
-    function optimizeCloudinary(url) {
-        return url; 
-    }
-    
+    function optimizeCloudinary(url) { return url; } // NO COMPRESS (URL ASLI)
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
@@ -143,6 +159,10 @@
 
 <svelte:head>
     <title>{product ? product.name : 'Narwastu Store'}</title>
+    <meta property="og:type" content="product" />
+    <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
+    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:image" content={product ? product.image_1_url : ''} />
     {#if product} <link rel="preload" as="image" href={product.image_1_url}> {/if}
 </svelte:head>
 
@@ -183,7 +203,7 @@
                                             class="w-full h-full object-contain" 
                                             loading={i === 0 ? "eager" : "lazy"} 
                                             fetchpriority={i === 0 ? "high" : "auto"} 
-                                            decoding="async" 
+                                            decoding="sync" 
                                         />
                                     {/if}
                                 </div>
@@ -252,11 +272,19 @@
                     <div class="mb-8 border-t border-gray-100 pt-6">
                         <h3 class="text-sm font-extrabold text-gray-800 mb-3 uppercase tracking-tight">Deskripsi Produk</h3>
                         <div class="relative">
-                            <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description || "Deskripsi belum tersedia."}</p>
-                            {#if !isDescriptionExpanded && (product.description?.length > 150)}
-                            <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
-                            {:else if isDescriptionExpanded}
-                            <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
+                            {#if !product.description}
+                                <div class="space-y-2 animate-pulse">
+                                    <div class="h-2 bg-gray-100 rounded w-full"></div>
+                                    <div class="h-2 bg-gray-100 rounded w-5/6"></div>
+                                    <div class="h-2 bg-gray-100 rounded w-4/6"></div>
+                                </div>
+                            {:else}
+                                <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description}</p>
+                                {#if !isDescriptionExpanded && (product.description?.length > 150)}
+                                <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
+                                {:else if isDescriptionExpanded}
+                                <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
+                                {/if}
                             {/if}
                         </div>
                     </div>
