@@ -110,7 +110,7 @@
             `Hallo Admin Narwastu\n` +
             `Saya Ingin Pesan "${product.name}"\n` +
             `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
-            `Apakah stok masih tersedia di cabang ini?`;
+            `Apakah stok masih tersedia di cabang ini dan bisa diproses secepatnya?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; // Tutup modal setelah klik
@@ -312,40 +312,62 @@
     {/if}
 
     {#if showBranchModal}
-    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div class="bg-white w-full max-w-4xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-            <div class="flex justify-between items-center p-4 border-b border-gray-100">
-                <h3 class="text-lg font-bold text-gray-800">Pilih Lokasi Cabang</h3>
-                <button onclick={() => showBranchModal = false} class="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition">
-                    <XIcon size="24"/>
+    <div class="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh]">
+            
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0 bg-white">
+                <div>
+                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi</h3>
+                    <p class="text-xs text-gray-500">Pilih cabang terdekat untuk pemesanan</p>
+                </div>
+                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition">
+                    <XIcon size="20"/>
                 </button>
             </div>
             
-            <div class="p-4 md:p-6 bg-gray-50 max-h-[70vh] overflow-y-auto custom-scrollbar">
+            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 bg-white">
                 {#if isLoadingBranches}
-                    <div class="text-center py-10 text-gray-400">Memuat cabang...</div>
+                    <div class="text-center py-10 text-gray-400 text-sm animate-pulse">Sedang memuat data cabang...</div>
                 {:else if branches.length === 0}
-                    <div class="text-center py-10 text-gray-400">Belum ada data cabang.</div>
+                    <div class="text-center py-10 text-gray-400 text-sm">Belum ada data cabang.</div>
                 {:else}
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                    <div class="space-y-2">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} class="bg-white p-4 rounded-xl border border-gray-200 hover:border-green-500 hover:shadow-md transition-all group text-left flex flex-col justify-between h-full">
-                                <div>
-                                    <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wider mb-1">
-                                        {#if branch.id === 1} PUSAT {:else} CABANG {/if}
+                            <button onclick={() => chatBranch(branch.whatsapp)} 
+                                class="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-[#C4161C]/30 hover:bg-red-50/50 transition-all group text-left active:scale-[0.99]">
+                                
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <div class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center shrink-0 group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                        <MapPinIcon size="14"/>
                                     </div>
-                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm line-clamp-2 mb-2 leading-tight">
-                                        {branch.name.replace('Narwastu ', '')}
-                                    </h4>
+                                    <div class="flex flex-col min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider group-hover:text-[#C4161C] transition-colors">
+                                                {#if branch.id === 1} PUSAT {:else} CABANG {/if}
+                                            </span>
+                                        </div>
+                                        <h4 class="font-bold text-gray-800 text-xs md:text-sm truncate pr-2 group-hover:text-[#C4161C] transition-colors">
+                                            {branch.name.replace('Narwastu ', '')}
+                                        </h4>
+                                    </div>
                                 </div>
-                                <div class="mt-3 flex items-center gap-2 text-green-600 font-bold text-[10px] md:text-xs bg-green-50 px-2 py-1.5 rounded-lg w-fit group-hover:bg-green-600 group-hover:text-white transition-colors">
-                                    <MessageCircleIcon size="14"/>
-                                    <span>Chat Admin</span>
+
+                                <div class="shrink-0 pl-2">
+                                    <div class="flex items-center gap-1.5 text-[#C4161C] bg-red-50 px-3 py-1.5 rounded-full text-[10px] font-bold group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                        <span>Chat</span>
+                                        <MessageCircleIcon size="12"/>
+                                    </div>
                                 </div>
                             </button>
                         {/each}
                     </div>
                 {/if}
+            </div>
+
+            <div class="bg-gray-50 p-3 text-center border-t border-gray-100 shrink-0">
+                <p class="text-[10px] text-gray-500">
+                    <span class="font-bold text-[#C4161C]">Info:</span> Luar P. Jawa dikenakan biaya ongkir.
+                </p>
             </div>
         </div>
     </div>
