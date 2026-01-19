@@ -95,14 +95,14 @@
         return url;
     };
 
-    const optimizeUrl = (url, width, quality = 'eco') => {
-        if (!url || !url.includes("cloudinary.com")) return url;
-        return url.replace("/upload/", `/upload/f_auto,q_auto:${quality},w_${width}/`);
+    // --- REVISI: HAPUS OPTIMASI KOMPRESI CLOUDINARY ---
+    const optimizeUrl = (url) => {
+        return url; // Kembalikan URL asli agar cepat tanpa proses server
     };
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v7'; // Update versi cache
+        const CACHE_KEY = 'home_data_v8'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
@@ -150,12 +150,7 @@
             if (res.ok) {
                 let raw = await res.json();
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
-                products = raw.map(p => ({
-                    ...p,
-                    image_1_url: optimizeUrl(p.image_1_url, 250, 'eco'),
-                    image_2_url: optimizeUrl(p.image_2_url, 250, 'eco'),
-                    image_3_url: optimizeUrl(p.image_3_url, 250, 'eco')
-                }));
+                products = raw; // Simpan apa adanya tanpa proses map url
                 updateCache();
             } else {
                 errorMsg = "Gagal memuat produk.";
@@ -166,7 +161,7 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v7', JSON.stringify({ 
+            sessionStorage.setItem('home_data_v8', JSON.stringify({ 
                 banners, 
                 products,
                 branches 
@@ -228,14 +223,7 @@
                         {#if i === currentIndex}
                             <div in:fly={{ x: 300, duration: 400 }} out:fly={{ x: -300, duration: 400 }} class="absolute inset-0 w-full h-full">
                                 <img 
-                                    srcset="
-                                        {optimizeUrl(banner.image_url, 640, 'eco')} 640w, 
-                                        {optimizeUrl(banner.image_url, 960, 'eco')} 960w, 
-                                        {optimizeUrl(banner.image_url, 1400, 'good')} 1400w,
-                                        {optimizeUrl(banner.image_url, 2000, 'good')} 2000w
-                                    "
-                                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 100vw, 1200px"
-                                    src={optimizeUrl(banner.image_url, 1400, 'good')} 
+                                    src={optimizeUrl(banner.image_url)} 
                                     alt="Promo" 
                                     class="w-full h-full object-cover" 
                                     fetchpriority="high" loading="eager" decoding="async"
@@ -301,7 +289,7 @@
                                 <div class="relative w-full aspect-[3/4] mb-2 overflow-hidden rounded-xl bg-gray-50 border-none shadow-sm">
                                     <a href="/produk/{item.slug}">
                                         <img 
-                                            src={optimizeUrl(item.image_1_url, 250, 'eco')} 
+                                            src={optimizeUrl(item.image_1_url)} 
                                             alt={item.name} 
                                             loading="lazy" decoding="async" width="150" height="200"
                                             class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
