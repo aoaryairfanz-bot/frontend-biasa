@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { fly } from 'svelte/transition'; 
     import { browser } from '$app/environment';
-    import { XIcon, AlertCircleIcon, RefreshCwIcon } from 'svelte-feather-icons'; 
+    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
 
@@ -10,8 +10,10 @@
     let banners = $state([]);
     let products = $state([]); 
     
-    // Default Nomor WA (Jaga-jaga jika fetch gagal)
-    let centralPhone = $state("628112936949"); 
+    // State Cabang
+    let branches = $state([]);
+    let showBranchModal = $state(false);
+    let selectedProduct = $state(null);
 
     // State Loading
     let loadingBanner = $state(true);
@@ -74,16 +76,12 @@
         'natal': 'https://cdn-icons-png.flaticon.com/512/6279/6279334.png',
         'buku': 'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
         'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png',
-        // --- TAMBAHAN BARU ---
-        'anggur': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',   // ID: 10472751 (Glass)
-        'hosti': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',    // Sama dengan Anggur
-        
-        'pernak': 'https://cdn-icons-png.flaticon.com/512/10359/10359496.png',   // ID: 10359496 (Earrings/Aksesoris)
-        
-        'hiasan': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   // ID: 10217777 (Figure/File)
-        'dinding': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       // HD/Hiasan Dinding pakai icon Figura
-        
-        'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' // Mewakili Gantungan
+        'anggur': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',   
+        'hosti': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',    
+        'pernak': 'https://cdn-icons-png.flaticon.com/512/10359/10359496.png',   
+        'hiasan': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   
+        'dinding': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       
+        'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' 
     };
 
     const getSubIcon = (name) => {
@@ -103,45 +101,31 @@
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v5'; 
+        const CACHE_KEY = 'home_data_v6'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
                 const data = JSON.parse(cached);
-                if (data.banners && Array.isArray(data.banners)) { banners = data.banners; loadingBanner = false; }
-                if (data.products && Array.isArray(data.products)) { products = data.products; loadingProducts = false; }
-                // Restore phone from cache if exists
-                if (data.phone) centralPhone = data.phone;
+                if (data.banners) { banners = data.banners; loadingBanner = false; }
+                if (data.products) { products = data.products; loadingProducts = false; }
+                if (data.branches) branches = data.branches;
             } catch (e) { console.error("Cache Error", e); }
         }
 
         fetchBannerData();
         fetchProductData();
-        fetchCentralPhone(); // Ambil nomor WA dari DB
+        fetchBranches(); // Fetch daftar cabang
     });
 
-    async function fetchCentralPhone() {
+    async function fetchBranches() {
         try {
-            // Ambil semua cabang, lalu cari ID 1
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
                 const raw = await res.json();
-                let list = [];
-                if (Array.isArray(raw)) list = raw;
-                else if (raw.data && Array.isArray(raw.data)) list = raw.data;
-
-                // Cari Cabang Pusat (ID 1) atau fallback ke cabang pertama yg punya WA
-                const pusat = list.find(b => b.id === 1) || list.find(b => b.whatsapp);
-                
-                if (pusat && pusat.whatsapp) {
-                    // Bersihkan nomor (hapus spasi/dash/+)
-                    centralPhone = pusat.whatsapp.replace(/\D/g, '');
-                    updateCache(); // Simpan nomor baru ke cache
-                }
+                branches = Array.isArray(raw) ? raw : (raw.data || []);
+                updateCache();
             }
-        } catch (e) {
-            console.error("Gagal ambil no WA pusat:", e);
-        }
+        } catch (e) { console.error("Gagal load cabang", e); }
     }
 
     async function fetchBannerData() {
@@ -179,10 +163,10 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v5', JSON.stringify({ 
+            sessionStorage.setItem('home_data_v6', JSON.stringify({ 
                 banners, 
                 products,
-                phone: centralPhone // Cache nomor telpon juga
+                branches 
             }));
         }
     }
@@ -196,13 +180,22 @@
         });
     }
 
-    // --- LOGIKA BELI: Pakai centralPhone dari DB ---
-    function buyNow(product) {
-        const sku = product.sku || '-';
-        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${product.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(product.price)}\n\nApakah stok masih tersedia?`;
+    // --- LOGIKA BELI (Pilih Cabang) ---
+    function openBuyModal(product) {
+        selectedProduct = product;
+        showBranchModal = true;
+    }
+
+    function chatBranch(branchPhone) {
+        if (!selectedProduct || !branchPhone) return;
         
-        const url = `https://wa.me/${centralPhone}?text=${encodeURIComponent(text)}`;
+        const sku = selectedProduct.sku || '-';
+        const cleanPhone = branchPhone.replace(/\D/g, '');
+        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${selectedProduct.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(selectedProduct.price)}\n\nApakah stok masih tersedia di cabang ini?`;
+        
+        const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
+        showBranchModal = false; // Tutup modal setelah klik
     }
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
@@ -218,7 +211,7 @@
     <meta name="description" content="Toko Rohani Narwastu menjual perengkapan ibadah." />
 </svelte:head>
 
-<div class="min-h-screen bg-white font-sans relative">
+<div class="min-h-screen bg-white font-sans relative pb-20">
     
     <section class="w-full mb-8 mt-4" aria-label="Promo Utama">
         <div class="container mx-auto px-4">
@@ -323,7 +316,7 @@
                                             <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.strike_price)}</span>
                                         {/if}
                                     </div>
-                                    <button onclick={() => buyNow(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
+                                    <button onclick={() => openBuyModal(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
                                         Beli
                                     </button>
                                 </div>
@@ -347,9 +340,55 @@
         {@render productRow("Promo Spesial", bestPromos, null, "", "/katalog?sort=promo")}
     {/if}
 
+    {#if showBranchModal}
+    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+        <div class="bg-white w-full max-w-sm rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
+            <div class="p-6">
+                <div class="flex justify-between items-start mb-4">
+                    <div>
+                        <h3 class="text-lg font-bold text-gray-800">Pilih Cabang</h3>
+                        <p class="text-xs text-gray-500">Silakan hubungi cabang terdekat Anda</p>
+                    </div>
+                    <button onclick={() => showBranchModal = false} class="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><XIcon size="20"/></button>
+                </div>
+
+                <div class="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
+                    {#if branches.length === 0}
+                        <div class="text-center py-4 text-sm text-gray-400">Memuat data cabang...</div>
+                    {:else}
+                        {#each branches as branch}
+                            <button onclick={() => chatBranch(branch.whatsapp)} class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group text-left">
+                                <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
+                                    <MapPinIcon size="18"/>
+                                </div>
+                                <div class="flex-1">
+                                    <h4 class="font-bold text-gray-800 text-sm">{branch.name.replace('Narwastu ','')}</h4>
+                                    <div class="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
+                                        <MessageCircleIcon size="10" />
+                                        <span>Chat Admin</span>
+                                    </div>
+                                </div>
+                                <div class="text-gray-300 group-hover:text-green-500">
+                                    <MessageCircleIcon size="18"/>
+                                </div>
+                            </button>
+                        {/each}
+                    {/if}
+                </div>
+            </div>
+            <div class="bg-gray-50 p-4 text-center text-[10px] text-gray-400">
+                Pilih cabang untuk ketersediaan stok yang akurat
+            </div>
+        </div>
+    </div>
+    {/if}
+
 </div>
 
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    /* Custom Scrollbar untuk Modal */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 4px; }
 </style>
