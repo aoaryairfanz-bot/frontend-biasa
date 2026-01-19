@@ -30,28 +30,12 @@
 //     return { product: null, slug };
 // }
 
-
-import { PUBLIC_API_URL } from '$env/static/public';
-
 /** @type {import('./$types').PageLoad} */
-export async function load({ params, fetch, setHeaders }) {
-    const { slug } = params;
-
-    // Cache Browser: Data disimpan 5 menit. 
-    // Jika user klik produk yg sama, INSTANT 0 detik.
-    setHeaders({
-        'cache-control': 'public, max-age=300'
-    });
-
-    try {
-        const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
-        if (res.ok) {
-            const product = await res.json();
-            return { product, slug }; // Data dikirim ke .svelte sudah matang
-        }
-    } catch (err) {
-        console.error("Gagal load produk:", err);
-    }
-
-    return { product: null, slug };
+export function load({ params }) {
+    // KITA HANYA MENGEMBALIKAN SLUG.
+    // Biarkan browser merender halaman dulu, baru ambil data di +page.svelte
+    return {
+        slug: params.slug,
+        product: null // Product dikosongkan agar tidak blocking
+    };
 }
