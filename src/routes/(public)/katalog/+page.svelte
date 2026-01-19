@@ -13,9 +13,9 @@
 
     // --- OPTIMASI 1: Caching & Fetching (Robust) ---
     onMount(async () => {
-        const CACHE_KEY = 'katalog_products_v3'; // Versi baru cache
+        const CACHE_KEY = 'katalog_products_v3'; // Versi baru
         
-        // 1. Cek Cache (Instant Load)
+        // 1. Cek Cache
         try {
             const cachedData = sessionStorage.getItem(CACHE_KEY);
             if (cachedData) {
@@ -27,7 +27,7 @@
             }
         } catch (e) { console.error("Cache error", e); }
 
-        // 2. Fetch Data Terbaru dari API
+        // 2. Fetch Data Terbaru
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             
@@ -62,9 +62,9 @@
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
-    // --- REVISI: HAPUS OPTIMASI URL CLOUDINARY ---
-    // Mengembalikan URL asli tanpa parameter f_auto, q_auto, w_xxx
-    const getOriginalUrl = (url) => {
+    // --- PERBAIKAN: DISABLE KOMPRESI CLOUDINARY ---
+    // Mengembalikan URL asli tanpa manipulasi parameter Cloudinary
+    const optimizeUrl = (url) => {
         return url; 
     };
 
@@ -83,7 +83,7 @@
     // --- SEARCH ---
     let searchTerm = $derived($page.url.searchParams.get('search')?.toLowerCase() || "");
 
-    // --- FILTERING LOGIC (DIPERBAIKI) ---
+    // --- FILTERING LOGIC ---
     let allFilteredProducts = $derived.by(() => {
         if (!products || products.length === 0) return [];
 
@@ -98,24 +98,14 @@
 
         if (filter !== 'all') {
             result = result.filter(item => {
-                const text = ((item.name || "") + " " + (item.slug || "")).toLowerCase();
-                const cat = (item.category || "").toLowerCase();
+                const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
                 
                 const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
-                // Buku adalah yang mengandung keyword buku TAPI bukan Alkitab
                 const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; 
-                
-                // Cek kategori asli dari database
-                const isNonBookCategory = cat === 'nonbook';
 
                 if (filter === 'alkitab') return isBible;
                 if (filter === 'buku') return isBook;
-                
-                // LOGIKA BARU: Rohani = HARUS kategori 'nonbook' (dari database) ATAU (bukan buku & bukan alkitab TAPI punya harga > 0)
-                // Ini mencegah item "sampah" atau item buku yang salah kategori masuk sini.
-                if (filter === 'rohani') {
-                    return isNonBookCategory && !isBible && !isBook;
-                }
+                if (filter === 'rohani') return !isBible && !isBook; 
                 
                 return true;
             });
@@ -206,7 +196,7 @@
                                 <div class="absolute top-0 left-0 bg-[#C4161C] text-white text-[9px] font-bold px-2 py-1 z-10 rounded-br-lg">-{diskon}%</div>
                             {/if}
                             <img 
-                                src={getOriginalUrl(item.image_1_url)} 
+                                src={optimizeUrl(item.image_1_url)} 
                                 alt={item.name} 
                                 loading="lazy" 
                                 decoding="async" 
@@ -236,18 +226,18 @@
 
             {#if totalPages > 1}
             <div class="flex justify-center items-center gap-2 pb-10 mt-8">
-                <button on:click={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❮</button>
+                <button onclick={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❮</button>
                 {#each Array(totalPages) as _, i}
                     {@const p = i + 1}
                     {#if p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)}
-                        <button on:click={() => changePage(p)} class="w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition {currentPage === p ? 'bg-[#C4161C] text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">
+                        <button onclick={() => changePage(p)} class="w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition {currentPage === p ? 'bg-[#C4161C] text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">
                             {p}
                         </button>
                     {:else if p === currentPage - 2 || p === currentPage + 2}
                         <span class="text-gray-300 text-xs">...</span>
                     {/if}
                 {/each}
-                <button on:click={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❯</button>
+                <button onclick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❯</button>
             </div>
             {/if}
 
