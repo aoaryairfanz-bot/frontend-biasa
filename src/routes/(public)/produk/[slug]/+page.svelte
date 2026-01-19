@@ -4,7 +4,7 @@
     import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA DARI +page.js
+    // AMBIL DATA DARI +page.js (Pastikan page.js tidak melakukan fetch berat/blocking)
     let { data } = $props();
     let product = $derived(data.product); 
     let slug = $derived(data.slug);
@@ -30,6 +30,7 @@
     let activeIndex = $state(0); 
     let sliderRef; 
 
+    // List Media (Gambar & Video)
     let mediaList = $derived.by(() => {
         if (!product) return [];
         let list = [product.image_1_url, product.image_2_url, product.image_3_url].filter(Boolean);
@@ -71,6 +72,7 @@
             if (res.ok) {
                 const allProducts = await res.json();
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
+                // Filter produk terkait (hilangkan produk yang sedang dibuka)
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
         } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
@@ -128,9 +130,10 @@
         if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
     }
 
-    function optimizeCloudinary(url, width = 'auto') {
-        if (!url || !url.includes('cloudinary.com')) return url;
-        return url.replace('/upload/', `/upload/f_auto,q_auto,w_${width}/`);
+    // --- TITAH BAGINDA: HAPUS KOMPRESI GAMBAR ---
+    function optimizeCloudinary(url) {
+        // Kembalikan URL mentah agar server mengirim file asli secepat kilat
+        return url; 
     }
     
     function isVideo(url) { return url === product?.video_url; }
@@ -149,16 +152,14 @@
     <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
     <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
     <meta property="og:url" content={$page.url.href} />
-    <meta property="og:image" content={product ? optimizeCloudinary(product.image_1_url, 600) : ''} />
-    <meta property="og:image:width" content="600" />
-    <meta property="og:image:height" content="600" />
-    <meta name="twitter:card" content="summary_large_image">
+    <meta property="og:image" content={product ? product.image_1_url : ''} />
 </svelte:head>
 
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     img, video { content-visibility: auto; }
+    
     /* Custom Scrollbar Modal */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
@@ -180,14 +181,21 @@
             <div class="flex flex-col md:flex-row gap-6 md:gap-8">
                 
                 <div class="w-full md:w-[384px] shrink-0 flex flex-col gap-3">
-                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group">
+                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group border border-gray-100">
                         <div bind:this={sliderRef} onscroll={handleScroll} class="flex w-full h-full overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide">
                             {#each mediaList as item, i}
                                 <div class="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center bg-white">
                                     {#if isVideo(item)}
                                         <video src={item} class="w-full h-full object-contain bg-white" autoplay muted loop playsinline preload="metadata"></video>
                                     {:else}
-                                        <img src={optimizeCloudinary(item, 800)} alt="{product.name}" class="w-full h-full object-contain" loading={i === 0 ? "eager" : "lazy"} fetchpriority={i === 0 ? "high" : "auto"} decoding="async" />
+                                        <img 
+                                            src={optimizeCloudinary(item)} 
+                                            alt="{product.name}" 
+                                            class="w-full h-full object-contain" 
+                                            loading={i === 0 ? "eager" : "lazy"} 
+                                            fetchpriority={i === 0 ? "high" : "auto"} 
+                                            decoding="async" 
+                                        />
                                     {/if}
                                 </div>
                             {/each}
@@ -198,11 +206,11 @@
                         {#each mediaList as item, i}
                             <button 
                                 onclick={() => scrollTo(i)} 
-                                class="relative w-14 h-14 rounded overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white 
-                                {activeIndex === i ? 'opacity-100' : 'opacity-40 hover:opacity-100'}"
+                                class="relative w-14 h-14 rounded-lg overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white border 
+                                {activeIndex === i ? 'border-[#C4161C] ring-1 ring-[#C4161C]' : 'border-gray-200 opacity-60 hover:opacity-100'}"
                             >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
-                                {:else} <img src={optimizeCloudinary(item, 150)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
+                                {:else} <img src={optimizeCloudinary(item)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
                             </button>
                         {/each}
                     </div>
@@ -226,13 +234,13 @@
 
                     <div class="mb-6">
                         <div class="flex flex-col gap-1">
-                            <div class="text-xs font-bold text-gray-800">{centralBranch.name}</div>
-                            <div class="text-[10px] text-gray-500 leading-relaxed">{centralBranch.address}</div>
+                            <div class="text-xs font-bold text-gray-800 flex items-center gap-1"><MapPinIcon size="12"/> {centralBranch.name}</div>
+                            <div class="text-[10px] text-gray-500 leading-relaxed pl-4">{centralBranch.address}</div>
                         </div>
                     </div>
 
                     <div class="mb-8">
-                        <div class="grid grid-cols-4 gap-4 text-center md:text-left">
+                        <div class="grid grid-cols-4 gap-4 text-center md:text-left bg-gray-50 p-4 rounded-xl border border-gray-100">
                             <div class="flex flex-col">
                                 <span class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-0.5">SKU</span>
                                 <span class="text-[10px] md:text-xs font-extrabold text-gray-700 truncate">{product.sku || "-"}</span>
@@ -265,7 +273,9 @@
                     </div>
 
                     <div class="hidden md:flex gap-3 pt-4 border-t border-gray-100">
-                        <button onclick={openBuyModal} class="flex-1 bg-[#C4161C] hover:bg-[#a51318] text-white font-bold h-12 rounded-lg shadow-md transition text-base tracking-wide uppercase">Beli Sekarang</button>
+                        <button onclick={openBuyModal} class="flex-1 bg-[#C4161C] hover:bg-[#a51318] text-white font-bold h-12 rounded-lg shadow-md transition text-base tracking-wide uppercase flex items-center justify-center gap-2">
+                            <span>Beli Sekarang</span>
+                        </button>
                         <button onclick={handleShare} class="w-12 h-12 flex items-center justify-center border border-gray-300 rounded-lg hover:bg-gray-50 text-gray-600 transition" title="Bagikan">
                             {#if isCopied} <CheckIcon size="20" class="text-green-600" />
                             {:else} <Share2Icon size="20" /> {/if}
@@ -283,7 +293,9 @@
                 {:else}
                     {#each relatedProducts as item}
                         <a href="/produk/{item.slug}" class="block bg-white rounded-lg p-2 border border-transparent hover:border-gray-200 hover:shadow-sm transition group">
-                            <div class="aspect-[3/4] bg-gray-50 rounded mb-2 flex items-center justify-center overflow-hidden"><img src={optimizeCloudinary(item.image_1_url, 300)} class="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition" alt={item.name} loading="lazy"></div>
+                            <div class="aspect-[3/4] bg-gray-50 rounded mb-2 flex items-center justify-center overflow-hidden">
+                                <img src={optimizeCloudinary(item.image_1_url)} class="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition" alt={item.name} loading="lazy">
+                            </div>
                             <div class="text-[10px] md:text-xs font-bold text-gray-800 line-clamp-2 mb-1 group-hover:text-[#C4161C] leading-tight uppercase">{item.name}</div>
                             <div class="text-[10px] md:text-xs font-bold text-[#C4161C]">{formatRupiah(item.price)}</div>
                         </a>
@@ -314,51 +326,36 @@
     {/if}
 
     {#if showBranchModal}
-    <div class="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div class="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh]">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
             
-            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0 bg-white">
-                <div>
-                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi</h3>
-                    <p class="text-xs text-gray-500">Pilih cabang terdekat untuk pemesanan</p>
-                </div>
-                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition">
-                    <XIcon size="20"/>
+            <div class="flex justify-between items-center p-4 border-b border-gray-100 shrink-0">
+                <h3 class="text-lg font-bold text-gray-800">Pilih Lokasi Cabang</h3>
+                <button onclick={() => showBranchModal = false} class="p-1 rounded-full hover:bg-gray-100 text-gray-500 hover:text-red-500 transition">
+                    <XIcon size="24"/>
                 </button>
             </div>
             
-            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 bg-white">
+            <div class="p-4 md:p-6 bg-gray-50 overflow-y-auto custom-scrollbar flex-1">
                 {#if isLoadingBranches}
-                    <div class="text-center py-10 text-gray-400 text-sm animate-pulse">Sedang memuat data cabang...</div>
+                    <div class="text-center py-10 text-gray-400">Memuat cabang...</div>
                 {:else if branches.length === 0}
-                    <div class="text-center py-10 text-gray-400 text-sm">Belum ada data cabang.</div>
+                    <div class="text-center py-10 text-gray-400">Belum ada data cabang.</div>
                 {:else}
-                    <div class="space-y-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} 
-                                class="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-[#C4161C]/30 hover:bg-red-50/50 transition-all group text-left active:scale-[0.99]">
-                                
-                                <div class="flex items-center gap-3 overflow-hidden">
-                                    <div class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center shrink-0 group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
-                                        <MapPinIcon size="14"/>
+                            <button onclick={() => chatBranch(branch.whatsapp)} class="bg-white p-3 md:p-4 rounded-xl border border-gray-200 hover:border-[#C4161C] hover:shadow-md transition-all group text-left flex flex-col justify-between h-full active:scale-[0.98]">
+                                <div>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
+                                        {#if branch.id === 1} PUSAT {:else} CABANG {/if}
                                     </div>
-                                    <div class="flex flex-col min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider group-hover:text-[#C4161C] transition-colors">
-                                                {#if branch.id === 1} PUSAT {:else} CABANG {/if}
-                                            </span>
-                                        </div>
-                                        <h4 class="font-bold text-gray-800 text-xs md:text-sm truncate pr-2 group-hover:text-[#C4161C] transition-colors">
-                                            {branch.name.replace('Narwastu ', '')}
-                                        </h4>
-                                    </div>
+                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm line-clamp-2 mb-2 leading-tight group-hover:text-[#C4161C] transition-colors">
+                                        {branch.name.replace('Narwastu ', '')}
+                                    </h4>
                                 </div>
-
-                                <div class="shrink-0 pl-2">
-                                    <div class="flex items-center gap-1.5 text-[#C4161C] bg-red-50 px-3 py-1.5 rounded-full text-[10px] font-bold group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
-                                        <span>Chat</span>
-                                        <MessageCircleIcon size="12"/>
-                                    </div>
+                                <div class="mt-2 flex items-center gap-1.5 text-[#C4161C] font-bold text-[10px] md:text-xs bg-red-50 px-2 py-1 rounded-lg w-fit group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                    <MessageCircleIcon size="12"/>
+                                    <span>Chat</span>
                                 </div>
                             </button>
                         {/each}
@@ -366,9 +363,9 @@
                 {/if}
             </div>
 
-            <div class="bg-gray-50 p-3 text-center border-t border-gray-100 shrink-0">
-                <p class="text-[10px] text-gray-500">
-                    <span class="font-bold text-[#C4161C]">Info:</span> Luar P. Jawa dikenakan biaya ongkir.
+            <div class="bg-yellow-50 p-3 text-center border-t border-yellow-100 shrink-0">
+                <p class="text-xs text-yellow-800 font-medium">
+                    <span class="font-bold">Info:</span> Khusus pengiriman ke luar pulau jawa akan dikenakan biaya ongkir.
                 </p>
             </div>
         </div>
