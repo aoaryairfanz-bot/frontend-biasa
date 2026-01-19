@@ -10,12 +10,13 @@
     let banners = $state([]);
     let products = $state([]); 
     
-    // State Cabang
-    let branches = $state([]);
+    // --- STATE CABANG & MODAL BELI ---
+    let branches = $state([]); 
     let showBranchModal = $state(false);
-    let selectedProduct = $state(null);
+    let selectedProduct = $state(null); // Produk yang sedang ingin dibeli
+    let isLoadingBranches = $state(false);
 
-    // State Loading
+    // State Loading & Error
     let loadingBanner = $state(true);
     let loadingProducts = $state(true);
     let errorMsg = $state("");
@@ -101,23 +102,24 @@
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v6'; // Update versi cache
+        const CACHE_KEY = 'home_data_v7'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 if (data.banners) { banners = data.banners; loadingBanner = false; }
                 if (data.products) { products = data.products; loadingProducts = false; }
-                if (data.branches) branches = data.branches;
+                if (data.branches) { branches = data.branches; }
             } catch (e) { console.error("Cache Error", e); }
         }
 
         fetchBannerData();
         fetchProductData();
-        fetchBranches(); // Fetch daftar cabang
+        fetchBranches(); // Fetch daftar cabang untuk modal
     });
 
     async function fetchBranches() {
+        isLoadingBranches = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
@@ -126,6 +128,7 @@
                 updateCache();
             }
         } catch (e) { console.error("Gagal load cabang", e); }
+        finally { isLoadingBranches = false; }
     }
 
     async function fetchBannerData() {
@@ -163,7 +166,7 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v6', JSON.stringify({ 
+            sessionStorage.setItem('home_data_v7', JSON.stringify({ 
                 banners, 
                 products,
                 branches 
@@ -181,11 +184,13 @@
     }
 
     // --- LOGIKA BELI (Pilih Cabang) ---
-    function openBuyModal(product) {
+    // 1. Saat tombol beli diklik, simpan produk dan buka modal
+    function buyNow(product) {
         selectedProduct = product;
         showBranchModal = true;
     }
 
+    // 2. Saat cabang dipilih di modal, arahkan ke WA cabang tersebut
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         
@@ -316,7 +321,7 @@
                                             <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.strike_price)}</span>
                                         {/if}
                                     </div>
-                                    <button onclick={() => openBuyModal(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
+                                    <button onclick={() => buyNow(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
                                         Beli
                                     </button>
                                 </div>
@@ -341,43 +346,62 @@
     {/if}
 
     {#if showBranchModal}
-    <div class="fixed inset-0 z-50 flex items-end md:items-center justify-center bg-black/60 backdrop-blur-sm p-4 animate-in fade-in duration-200">
-        <div class="bg-white w-full max-w-sm rounded-t-3xl md:rounded-3xl overflow-hidden shadow-2xl animate-in slide-in-from-bottom duration-300">
-            <div class="p-6">
-                <div class="flex justify-between items-start mb-4">
-                    <div>
-                        <h3 class="text-lg font-bold text-gray-800">Pilih Cabang</h3>
-                        <p class="text-xs text-gray-500">Silakan hubungi cabang terdekat Anda</p>
-                    </div>
-                    <button onclick={() => showBranchModal = false} class="p-1 text-gray-400 hover:text-gray-600 rounded-full hover:bg-gray-100"><XIcon size="20"/></button>
+    <div class="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh]">
+            
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0 bg-white">
+                <div>
+                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi</h3>
+                    <p class="text-xs text-gray-500">Pilih cabang terdekat untuk pemesanan</p>
                 </div>
-
-                <div class="space-y-3 max-h-[60vh] overflow-y-auto custom-scrollbar pr-1">
-                    {#if branches.length === 0}
-                        <div class="text-center py-4 text-sm text-gray-400">Memuat data cabang...</div>
-                    {:else}
+                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition">
+                    <XIcon size="20"/>
+                </button>
+            </div>
+            
+            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 bg-white">
+                {#if isLoadingBranches}
+                    <div class="text-center py-10 text-gray-400 text-sm animate-pulse">Sedang memuat data cabang...</div>
+                {:else if branches.length === 0}
+                    <div class="text-center py-10 text-gray-400 text-sm">Belum ada data cabang.</div>
+                {:else}
+                    <div class="space-y-2">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} class="w-full flex items-center gap-3 p-3 rounded-xl border border-gray-100 hover:border-green-500 hover:bg-green-50 transition-all group text-left">
-                                <div class="w-10 h-10 rounded-full bg-green-100 text-green-600 flex items-center justify-center shrink-0 group-hover:scale-110 transition-transform">
-                                    <MapPinIcon size="18"/>
-                                </div>
-                                <div class="flex-1">
-                                    <h4 class="font-bold text-gray-800 text-sm">{branch.name.replace('Narwastu ','')}</h4>
-                                    <div class="flex items-center gap-1 text-[10px] text-gray-500 mt-0.5">
-                                        <MessageCircleIcon size="10" />
-                                        <span>Chat Admin</span>
+                            <button onclick={() => chatBranch(branch.whatsapp)} 
+                                class="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-[#C4161C]/30 hover:bg-red-50/50 transition-all group text-left active:scale-[0.99]">
+                                
+                                <div class="flex items-center gap-3 overflow-hidden">
+                                    <div class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center shrink-0 group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                        <MapPinIcon size="14"/>
+                                    </div>
+                                    <div class="flex flex-col min-w-0">
+                                        <div class="flex items-center gap-2">
+                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider group-hover:text-[#C4161C] transition-colors">
+                                                {#if branch.id === 1} PUSAT {:else} CABANG {/if}
+                                            </span>
+                                        </div>
+                                        <h4 class="font-bold text-gray-800 text-xs md:text-sm truncate pr-2 group-hover:text-[#C4161C] transition-colors">
+                                            {branch.name.replace('Narwastu ', '')}
+                                        </h4>
                                     </div>
                                 </div>
-                                <div class="text-gray-300 group-hover:text-green-500">
-                                    <MessageCircleIcon size="18"/>
+
+                                <div class="shrink-0 pl-2">
+                                    <div class="flex items-center gap-1.5 text-[#C4161C] bg-red-50 px-3 py-1.5 rounded-full text-[10px] font-bold group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                        <span>Chat</span>
+                                        <MessageCircleIcon size="12"/>
+                                    </div>
                                 </div>
                             </button>
                         {/each}
-                    {/if}
-                </div>
+                    </div>
+                {/if}
             </div>
-            <div class="bg-gray-50 p-4 text-center text-[10px] text-gray-400">
-                Pilih cabang untuk ketersediaan stok yang akurat
+
+            <div class="bg-gray-50 p-3 text-center border-t border-gray-100 shrink-0">
+                <p class="text-[10px] text-gray-500">
+                    <span class="font-bold text-[#C4161C]">Info:</span> Luar P. Jawa dikenakan biaya ongkir.
+                </p>
             </div>
         </div>
     </div>
@@ -388,7 +412,8 @@
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    /* Custom Scrollbar untuk Modal */
+    /* Custom Scrollbar Modal */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
 </style>

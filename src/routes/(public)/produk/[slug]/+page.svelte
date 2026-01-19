@@ -1,7 +1,7 @@
 <script>
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon } from 'svelte-feather-icons';
+    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
     // AMBIL DATA DARI +page.js
@@ -54,13 +54,11 @@
             if (res.ok) {
                 const raw = await res.json();
                 let list = Array.isArray(raw) ? raw : (raw.data || []);
-                branches = list; // Simpan semua cabang untuk modal
+                branches = list; 
 
                 // Cari pusat untuk info di halaman
                 const pusat = list.find(b => b.id === 1);
-                if (pusat) {
-                    centralBranch = pusat; 
-                }
+                if (pusat) centralBranch = pusat; 
             }
         } catch (error) { console.error("Gagal load cabang:", error); }
         finally { isLoadingBranches = false; }
@@ -110,10 +108,10 @@
             `Hallo Admin Narwastu\n` +
             `Saya Ingin Pesan "${product.name}"\n` +
             `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
-            `Apakah stok masih tersedia di cabang ini dan bisa diproses secepatnya?`;
+            `Apakah stok masih tersedia di cabang ini?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
-        showBranchModal = false; // Tutup modal setelah klik
+        showBranchModal = false; 
     }
 
     // --- UI UTILS ---
@@ -161,6 +159,10 @@
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     img, video { content-visibility: auto; }
+    /* Custom Scrollbar Modal */
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
 </style>
 
 <div class="min-h-screen bg-white pb-32 font-sans text-gray-800 relative">
