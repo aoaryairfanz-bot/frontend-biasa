@@ -289,7 +289,7 @@
                                 <div class="relative w-full aspect-[3/4] mb-2 overflow-hidden rounded-xl bg-gray-50 border-none shadow-sm">
                                     <a href="/produk/{item.slug}">
                                         <img 
-                                            src={optimizeUrl(item.image_1_url)} 
+                                            src={optimizeUrl(item.image_1_url, 250, 'eco')} 
                                             alt={item.name} 
                                             loading="lazy" decoding="async" width="150" height="200"
                                             class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
