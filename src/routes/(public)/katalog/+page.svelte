@@ -13,7 +13,7 @@
 
     // --- OPTIMASI 1: Caching & Fetching (Robust) ---
     onMount(async () => {
-        const CACHE_KEY = 'katalog_products_v2';
+        const CACHE_KEY = 'katalog_products_v3'; // Versi baru cache
         
         // 1. Cek Cache (Instant Load)
         try {
@@ -55,16 +55,17 @@
         }
     });
 
-    // --- LOGIKA KATEGORI BARU ---
+    // --- LOGIKA KATEGORI ---
     const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
     const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'novena'];
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
-    const optimizeUrl = (url, width) => {
-        if (!url || !url.includes("cloudinary.com")) return url;
-        return url.replace("/upload/", `/upload/q_auto:eco,f_auto,w_${width}/`);
+    // --- REVISI: HAPUS OPTIMASI URL CLOUDINARY ---
+    // Mengembalikan URL asli tanpa parameter f_auto, q_auto, w_xxx
+    const getOriginalUrl = (url) => {
+        return url; 
     };
 
     // --- STATE UI ---
@@ -82,7 +83,7 @@
     // --- SEARCH ---
     let searchTerm = $derived($page.url.searchParams.get('search')?.toLowerCase() || "");
 
-    // --- FILTERING LOGIC ---
+    // --- FILTERING LOGIC (DIPERBAIKI) ---
     let allFilteredProducts = $derived.by(() => {
         if (!products || products.length === 0) return [];
 
@@ -97,14 +98,24 @@
 
         if (filter !== 'all') {
             result = result.filter(item => {
-                const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
+                const text = ((item.name || "") + " " + (item.slug || "")).toLowerCase();
+                const cat = (item.category || "").toLowerCase();
                 
                 const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
+                // Buku adalah yang mengandung keyword buku TAPI bukan Alkitab
                 const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; 
+                
+                // Cek kategori asli dari database
+                const isNonBookCategory = cat === 'nonbook';
 
                 if (filter === 'alkitab') return isBible;
                 if (filter === 'buku') return isBook;
-                if (filter === 'rohani') return !isBible && !isBook; 
+                
+                // LOGIKA BARU: Rohani = HARUS kategori 'nonbook' (dari database) ATAU (bukan buku & bukan alkitab TAPI punya harga > 0)
+                // Ini mencegah item "sampah" atau item buku yang salah kategori masuk sini.
+                if (filter === 'rohani') {
+                    return isNonBookCategory && !isBible && !isBook;
+                }
                 
                 return true;
             });
@@ -195,11 +206,10 @@
                                 <div class="absolute top-0 left-0 bg-[#C4161C] text-white text-[9px] font-bold px-2 py-1 z-10 rounded-br-lg">-{diskon}%</div>
                             {/if}
                             <img 
-                                src={optimizeUrl(item.image_1_url, 200)} 
+                                src={getOriginalUrl(item.image_1_url)} 
                                 alt={item.name} 
                                 loading="lazy" 
                                 decoding="async" 
-                                width="200" height="267"
                                 class="w-full h-full object-contain p-3 group-hover:scale-105 transition duration-500" 
                             />
                         </div>
@@ -226,18 +236,18 @@
 
             {#if totalPages > 1}
             <div class="flex justify-center items-center gap-2 pb-10 mt-8">
-                <button onclick={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❮</button>
+                <button on:click={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❮</button>
                 {#each Array(totalPages) as _, i}
                     {@const p = i + 1}
                     {#if p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)}
-                        <button onclick={() => changePage(p)} class="w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition {currentPage === p ? 'bg-[#C4161C] text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">
+                        <button on:click={() => changePage(p)} class="w-8 h-8 flex items-center justify-center rounded-full text-xs font-bold transition {currentPage === p ? 'bg-[#C4161C] text-white shadow-md' : 'bg-white border border-gray-200 text-gray-600 hover:bg-gray-50'}">
                             {p}
                         </button>
                     {:else if p === currentPage - 2 || p === currentPage + 2}
                         <span class="text-gray-300 text-xs">...</span>
                     {/if}
                 {/each}
-                <button onclick={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❯</button>
+                <button on:click={() => changePage(currentPage + 1)} disabled={currentPage === totalPages} class="w-8 h-8 flex items-center justify-center rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30 text-gray-600 transition">❯</button>
             </div>
             {/if}
 
