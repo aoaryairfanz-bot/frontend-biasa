@@ -1,37 +1,36 @@
 <script>
     import { page } from '$app/stores';
-    import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA
+    // AMBIL DATA DARI +page.js (Pastikan page.js tidak melakukan fetch berat/blocking)
     let { data } = $props();
-    
-    // --- LOGIKA HYBRID STATE (INSTANT LOAD) ---
-    let initialData = $state($page.state.productInit || data.product);
+    let product = $derived(data.product); 
     let slug = $derived(data.slug);
 
-    let fullDescription = $state(initialData?.description || ""); 
-    let product = $state(initialData);
-
-    // --- STATE LAINNYA ---
+    // --- STATE PENDUKUNG ---
     let relatedProducts = $state([]);       
+    let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
     let isCopied = $state(false);
-    let branches = $state([]); 
-    let showBranchModal = $state(false); 
+
+    // --- STATE CABANG & MODAL ---
+    let branches = $state([]); // Data semua cabang
+    let showBranchModal = $state(false); // Kontrol modal
     let isLoadingBranches = $state(false);
-    
+
+    // Default Alamat Pusat (untuk tampilan info di bawah harga)
     let centralBranch = $state({
         name: "Narwastu Store Yogyakarta",
         address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281"
     });
 
+    // --- SLIDER STATE ---
     let activeIndex = $state(0); 
     let sliderRef; 
 
-    // List Media
+    // List Media (Gambar & Video)
     let mediaList = $derived.by(() => {
         if (!product) return [];
         let list = [product.image_1_url, product.image_2_url, product.image_3_url].filter(Boolean);
@@ -41,32 +40,15 @@
 
     // --- EFFECT ---
     $effect(() => {
-        if (slug) {
-            if (data.product && data.slug === slug) {
-                 product = data.product;
-            }
+        if (product) {
             activeIndex = 0;
-            loadFullProductDetails(); 
             loadBranches();
             loadRelatedProducts();
         }
     });
 
-    // --- BACKGROUND FETCH ---
-    async function loadFullProductDetails() {
-        if (!product.description) {
-            try {
-                const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
-                if (res.ok) {
-                    const freshData = await res.json();
-                    product = { ...product, ...freshData };
-                }
-            } catch (e) { console.error("Background fetch error", e); }
-        }
-    }
-
+    // --- LOAD DATA CLIENT SIDE ---
     async function loadBranches() {
-        if (branches.length > 0) return;
         isLoadingBranches = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
@@ -74,22 +56,26 @@
                 const raw = await res.json();
                 let list = Array.isArray(raw) ? raw : (raw.data || []);
                 branches = list; 
+
+                // Cari pusat untuk info di halaman
                 const pusat = list.find(b => b.id === 1);
                 if (pusat) centralBranch = pusat; 
             }
-        } catch (error) { console.error("Gagal load cabang", error); }
+        } catch (error) { console.error("Gagal load cabang:", error); }
         finally { isLoadingBranches = false; }
     }
 
     async function loadRelatedProducts() {
+        isLoadingRelated = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             if (res.ok) {
                 const allProducts = await res.json();
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
+                // Filter produk terkait (hilangkan produk yang sedang dibuka)
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
-        } catch (error) { console.error(error); }
+        } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
     }
 
     // --- ACTIONS ---
@@ -108,25 +94,22 @@
         }
     }
 
-    function openBuyModal() { showBranchModal = true; }
+    // Fungsi Buka Modal
+    function openBuyModal() {
+        showBranchModal = true;
+    }
 
-    // --- PERBAIKAN FITUR CHAT WA ---
+    // Fungsi Chat ke Cabang Tertentu
     function chatBranch(branchPhone) {
         if (!branchPhone) return;
-        
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
         
-        // Tambahkan Link Gambar Langsung agar Admin bisa klik lihat gambar
-        const urlGambar = product.image_1_url; 
-
         const pesan = 
+            `${urlProduk}\n\n` + 
             `Hallo Admin Narwastu\n` +
-            `Saya tertarik dengan produk ini:\n\n` +
-            `*${product.name}*\n` +
-            `Harga: ${formatRupiah(product.price)}\n` +
-            `Link Produk: ${urlProduk}\n` +
-            `Foto Produk: ${urlGambar}\n\n` + // <-- Tambahan Link Gambar
+            `Saya Ingin Pesan "${product.name}"\n` +
+            `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
             `Apakah stok masih tersedia di cabang ini?`;
             
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
@@ -137,16 +120,22 @@
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
-        sliderRef.scrollTo({ left: sliderRef.offsetWidth * index, behavior: 'smooth' });
+        const scrollAmount = sliderRef.offsetWidth * index;
+        sliderRef.scrollTo({ left: scrollAmount, behavior: 'smooth' });
     }
     
     function handleScroll() {
         if (!sliderRef) return;
         const newIndex = Math.round(sliderRef.scrollLeft / sliderRef.offsetWidth);
-        if (newIndex !== activeIndex) activeIndex = newIndex;
+        if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
     }
 
-    function optimizeCloudinary(url) { return url; } // NO COMPRESS (URL ASLI)
+    // --- TITAH BAGINDA: HAPUS KOMPRESI GAMBAR ---
+    function optimizeCloudinary(url) {
+        // Kembalikan URL mentah agar server mengirim file asli secepat kilat
+        return url; 
+    }
+    
     function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
@@ -162,14 +151,16 @@
     <meta property="og:type" content="product" />
     <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
     <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:url" content={$page.url.href} />
     <meta property="og:image" content={product ? product.image_1_url : ''} />
-    {#if product} <link rel="preload" as="image" href={product.image_1_url}> {/if}
 </svelte:head>
 
 <style>
     .scrollbar-hide::-webkit-scrollbar { display: none; }
     .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
     img, video { content-visibility: auto; }
+    
+    /* Custom Scrollbar Modal */
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
@@ -190,7 +181,7 @@
             <div class="flex flex-col md:flex-row gap-6 md:gap-8">
                 
                 <div class="w-full md:w-[384px] shrink-0 flex flex-col gap-3">
-                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group">
+                    <div class="relative w-full aspect-square md:h-[411px] md:w-[384px] bg-white rounded-lg overflow-hidden group border border-gray-100">
                         <div bind:this={sliderRef} onscroll={handleScroll} class="flex w-full h-full overflow-x-auto snap-x snap-mandatory scroll-smooth scrollbar-hide">
                             {#each mediaList as item, i}
                                 <div class="w-full h-full flex-shrink-0 snap-center relative flex items-center justify-center bg-white">
@@ -203,7 +194,7 @@
                                             class="w-full h-full object-contain" 
                                             loading={i === 0 ? "eager" : "lazy"} 
                                             fetchpriority={i === 0 ? "high" : "auto"} 
-                                            decoding="sync" 
+                                            decoding="async" 
                                         />
                                     {/if}
                                 </div>
@@ -215,8 +206,8 @@
                         {#each mediaList as item, i}
                             <button 
                                 onclick={() => scrollTo(i)} 
-                                class="relative w-14 h-14 rounded-lg overflow-hidden cursor-pointer transition-all duration-300 flex-shrink-0 bg-white
-                                {activeIndex === i ? 'opacity-100 shadow-md scale-105' : 'opacity-40 hover:opacity-100 grayscale hover:grayscale-0'}"
+                                class="relative w-14 h-14 rounded-lg overflow-hidden p-0.5 cursor-pointer transition flex-shrink-0 bg-white border 
+                                {activeIndex === i ? 'border-[#C4161C] ring-1 ring-[#C4161C]' : 'border-gray-200 opacity-60 hover:opacity-100'}"
                             >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item)} alt="Thumb" class="w-full h-full object-contain" loading="lazy" /> {/if}
@@ -272,19 +263,11 @@
                     <div class="mb-8 border-t border-gray-100 pt-6">
                         <h3 class="text-sm font-extrabold text-gray-800 mb-3 uppercase tracking-tight">Deskripsi Produk</h3>
                         <div class="relative">
-                            {#if !product.description}
-                                <div class="space-y-2 animate-pulse">
-                                    <div class="h-2 bg-gray-100 rounded w-full"></div>
-                                    <div class="h-2 bg-gray-100 rounded w-5/6"></div>
-                                    <div class="h-2 bg-gray-100 rounded w-4/6"></div>
-                                </div>
-                            {:else}
-                                <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description}</p>
-                                {#if !isDescriptionExpanded && (product.description?.length > 150)}
-                                <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
-                                {:else if isDescriptionExpanded}
-                                <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
-                                {/if}
+                            <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description || "Deskripsi belum tersedia."}</p>
+                            {#if !isDescriptionExpanded && (product.description?.length > 150)}
+                            <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
+                            {:else if isDescriptionExpanded}
+                            <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
                             {/if}
                         </div>
                     </div>
@@ -309,7 +292,7 @@
                     {#each Array(6) as _}<div class="bg-white rounded-lg p-2 animate-pulse"><div class="aspect-[3/4] bg-gray-200 rounded mb-2"></div><div class="h-3 bg-gray-200 rounded w-3/4 mb-1"></div></div>{/each}
                 {:else}
                     {#each relatedProducts as item}
-                        <a href="/produk/{item.slug}" class="block bg-white rounded-lg p-2 border border-transparent hover:shadow-sm transition group">
+                        <a href="/produk/{item.slug}" class="block bg-white rounded-lg p-2 border border-transparent hover:border-gray-200 hover:shadow-sm transition group">
                             <div class="aspect-[3/4] bg-gray-50 rounded mb-2 flex items-center justify-center overflow-hidden">
                                 <img src={optimizeCloudinary(item.image_1_url)} class="max-w-full max-h-full object-contain p-2 group-hover:scale-105 transition" alt={item.name} loading="lazy">
                             </div>
@@ -361,7 +344,7 @@
                 {:else}
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} class="bg-white p-3 md:p-4 rounded-xl shadow-sm hover:shadow-md transition-all group text-left flex flex-col justify-between h-full active:scale-[0.98]">
+                            <button onclick={() => chatBranch(branch.whatsapp)} class="bg-white p-3 md:p-4 rounded-xl border border-gray-200 hover:border-[#C4161C] hover:shadow-md transition-all group text-left flex flex-col justify-between h-full active:scale-[0.98]">
                                 <div>
                                     <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1">
                                         {#if branch.id === 1} PUSAT {:else} CABANG {/if}
