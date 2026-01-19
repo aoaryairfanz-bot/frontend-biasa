@@ -1,36 +1,36 @@
 <script>
     import { page } from '$app/stores';
-    import { onMount } from 'svelte'; // Perlu onMount untuk fetch sendiri
+    import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
     import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA DARI +page.js (Sekarang cuma slug, product null)
+    // AMBIL DATA
     let { data } = $props();
+    
+    // --- LOGIKA UTAMA KECEPATAN (HYBRID STATE) ---
+    // 1. Cek apakah ada data "titipan" dari halaman katalog ($page.state.productInit)
+    // 2. Jika tidak ada (user refresh/direct link), pakai data dari +page.js (data.product)
+    let initialData = $state($page.state.productInit || data.product);
     let slug = $derived(data.slug);
 
-    // --- STATE UTAMA ---
-    let product = $state(null); // Kita fetch sendiri nanti
-    let isLoadingProduct = $state(true);
+    // State untuk data lengkap (karena katalog mungkin tidak punya deskripsi)
+    let fullDescription = $state(initialData?.description || ""); 
+    let product = $state(initialData);
 
-    // --- STATE PENDUKUNG ---
+    // --- STATE LAINNYA ---
     let relatedProducts = $state([]);       
-    let isLoadingRelated = $state(true);
     let isDescriptionExpanded = $state(false);
     let isCopied = $state(false);
-
-    // --- STATE CABANG & MODAL ---
     let branches = $state([]); 
     let showBranchModal = $state(false); 
     let isLoadingBranches = $state(false);
-
-    // Default Alamat Pusat
+    
     let centralBranch = $state({
         name: "Narwastu Store Yogyakarta",
         address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281"
     });
 
-    // --- SLIDER STATE ---
     let activeIndex = $state(0); 
     let sliderRef; 
 
@@ -43,35 +43,40 @@
     });
 
     // --- EFFECT ---
-    // Setiap kali slug berubah (pindah produk), reset dan fetch ulang
     $effect(() => {
+        // Jika slug berubah, atau jika kita cuma punya data parsial (dari katalog),
+        // Kita fetch ulang di background untuk memastikan data terbaru/lengkap (misal stok/deskripsi)
         if (slug) {
-            product = null; // Kosongkan dulu biar kerasa pindahnya
-            isLoadingProduct = true;
-            activeIndex = 0;
+            // Update UI langsung jika ganti slug via related product
+            if (data.product && data.slug === slug) {
+                 product = data.product;
+            }
             
-            // FETCH PARALEL (Jalan barengan biar cepet)
-            Promise.all([
-                fetchProduct(),
-                loadBranches(),
-                loadRelatedProducts()
-            ]);
+            activeIndex = 0;
+            // Fetch background process (tidak memblokir UI)
+            loadFullProductDetails(); 
+            loadBranches();
+            loadRelatedProducts();
         }
     });
 
-    // --- LOAD DATA (DI SINI AGAR UI MUNCUL DULUAN) ---
-    async function fetchProduct() {
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
-            if (res.ok) {
-                product = await res.json();
-            }
-        } catch (e) { console.error("Gagal load produk", e); }
-        finally { isLoadingProduct = false; }
+    // --- BACKGROUND FETCH ---
+    async function loadFullProductDetails() {
+        // Hanya fetch jika deskripsi kosong (artinya data dari katalog belum lengkap)
+        if (!product.description) {
+            try {
+                const res = await fetch(`${PUBLIC_API_URL}/products/${slug}`);
+                if (res.ok) {
+                    const freshData = await res.json();
+                    // Gabungkan data katalog dengan data baru (deskripsi, stok update)
+                    product = { ...product, ...freshData };
+                }
+            } catch (e) { console.error("Background fetch error", e); }
+        }
     }
 
     async function loadBranches() {
-        if (branches.length > 0) return; // Kalau sudah ada gak usah fetch lagi
+        if (branches.length > 0) return;
         isLoadingBranches = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
@@ -82,12 +87,11 @@
                 const pusat = list.find(b => b.id === 1);
                 if (pusat) centralBranch = pusat; 
             }
-        } catch (error) { console.error("Gagal load cabang:", error); }
+        } catch (error) { console.error("Gagal load cabang", error); }
         finally { isLoadingBranches = false; }
     }
 
     async function loadRelatedProducts() {
-        isLoadingRelated = true;
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/`); 
             if (res.ok) {
@@ -95,12 +99,11 @@
                 let list = Array.isArray(allProducts) ? allProducts : (allProducts.products || []);
                 relatedProducts = list.filter(p => p.slug !== slug).slice(0, 6); 
             }
-        } catch (error) { console.error(error); } finally { isLoadingRelated = false; }
+        } catch (error) { console.error(error); }
     }
 
     // --- ACTIONS ---
     function handleShare() {
-        if (!product) return;
         const shareData = {
             title: product.name,
             text: `Cek produk ini: ${product.name}`,
@@ -115,22 +118,13 @@
         }
     }
 
-    function openBuyModal() {
-        showBranchModal = true;
-    }
+    function openBuyModal() { showBranchModal = true; }
 
     function chatBranch(branchPhone) {
-        if (!branchPhone || !product) return;
+        if (!branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
-        
-        const pesan = 
-            `${urlProduk}\n\n` + 
-            `Hallo Admin Narwastu\n` +
-            `Saya Ingin Pesan "${product.name}"\n` +
-            `SKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\n` +
-            `Apakah stok masih tersedia di cabang ini?`;
-            
+        const pesan = `Hallo Admin Narwastu\nSaya Ingin Pesan "${product.name}"\nSKU: "${product.sku || '-'}" Harga: "${formatRupiah(product.price)}"\nLink: ${urlProduk}\n\nApakah stok masih tersedia di cabang ini?`;
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; 
     }
@@ -139,27 +133,21 @@
     function scrollTo(index) {
         if (!sliderRef || index < 0 || index >= mediaList.length) return;
         activeIndex = index;
-        const scrollAmount = sliderRef.offsetWidth * index;
-        sliderRef.scrollTo({ left: scrollAmount, behavior: 'smooth' });
+        sliderRef.scrollTo({ left: sliderRef.offsetWidth * index, behavior: 'smooth' });
     }
     
     function handleScroll() {
         if (!sliderRef) return;
         const newIndex = Math.round(sliderRef.scrollLeft / sliderRef.offsetWidth);
-        if (newIndex !== activeIndex && newIndex >= 0 && newIndex < mediaList.length) activeIndex = newIndex;
+        if (newIndex !== activeIndex) activeIndex = newIndex;
     }
 
-    // --- TITAH BAGINDA: HAPUS KOMPRESI GAMBAR ---
-    function optimizeCloudinary(url) {
-        return url; // URL MENTAH
-    }
-    
-    function isVideo(url) { return product && url === product.video_url; }
+    function optimizeCloudinary(url) { return url; } // NO COMPRESS
+    function isVideo(url) { return url === product?.video_url; }
     function formatRupiah(n) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(n); }
     function hitungDiskon(a, b) { if (!b || b <= a) return 0; return Math.round(((b - a) / b) * 100); }
     function formatDimensi() {
-        if (!product) return "-";
-        const { length: p, width: l, height: t } = product;
+        const { length: p, width: l, height: t } = product || {};
         if (p || l || t) return `${p || 0}x${l || 0}x${t || 0}cm`;
         return "-";
     }
@@ -167,6 +155,7 @@
 
 <svelte:head>
     <title>{product ? product.name : 'Narwastu Store'}</title>
+    {#if product} <link rel="preload" as="image" href={product.image_1_url}> {/if}
 </svelte:head>
 
 <style>
@@ -200,7 +189,10 @@
                                     {#if isVideo(item)}
                                         <video src={item} class="w-full h-full object-contain bg-white" autoplay muted loop playsinline preload="metadata"></video>
                                     {:else}
-                                        <img src={optimizeCloudinary(item)} alt="{product.name}" class="w-full h-full object-contain" loading={i === 0 ? "eager" : "lazy"} />
+                                        <img src={optimizeCloudinary(item)} alt="{product.name}" class="w-full h-full object-contain" 
+                                            loading={i === 0 ? "eager" : "lazy"} 
+                                            fetchpriority={i === 0 ? "high" : "auto"} 
+                                            decoding="sync" />
                                     {/if}
                                 </div>
                             {/each}
@@ -264,11 +256,19 @@
                     <div class="mb-8 border-t border-gray-100 pt-6">
                         <h3 class="text-sm font-extrabold text-gray-800 mb-3 uppercase tracking-tight">Deskripsi Produk</h3>
                         <div class="relative">
-                            <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description || "Deskripsi belum tersedia."}</p>
-                            {#if !isDescriptionExpanded && (product.description?.length > 150)}
-                            <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
-                            {:else if isDescriptionExpanded}
-                            <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
+                            {#if !product.description}
+                                <div class="space-y-2 animate-pulse">
+                                    <div class="h-2 bg-gray-100 rounded w-full"></div>
+                                    <div class="h-2 bg-gray-100 rounded w-5/6"></div>
+                                    <div class="h-2 bg-gray-100 rounded w-4/6"></div>
+                                </div>
+                            {:else}
+                                <p class="text-sm text-gray-600 leading-relaxed whitespace-pre-line text-justify {isDescriptionExpanded ? '' : 'line-clamp-3'}">{product.description}</p>
+                                {#if !isDescriptionExpanded && (product.description?.length > 150)}
+                                <button onclick={() => isDescriptionExpanded = true} class="text-xs font-bold text-[#C4161C] mt-1 hover:underline">Selengkapnya...</button>
+                                {:else if isDescriptionExpanded}
+                                <button onclick={() => isDescriptionExpanded = false} class="text-xs font-bold text-gray-400 mt-1 hover:text-gray-600">Tutup</button>
+                                {/if}
                             {/if}
                         </div>
                     </div>
