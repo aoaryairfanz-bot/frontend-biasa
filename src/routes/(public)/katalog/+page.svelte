@@ -2,7 +2,6 @@
     import { onMount } from 'svelte';
     import { fade } from 'svelte/transition';
     import { page } from '$app/stores'; 
-    import { goto } from '$app/navigation'; // Import goto untuk navigasi cepat
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import { LoaderIcon, FilterIcon, AlertCircleIcon } from 'svelte-feather-icons';
 
@@ -14,7 +13,7 @@
 
     // --- OPTIMASI 1: Caching & Fetching (Robust) ---
     onMount(async () => {
-        const CACHE_KEY = 'katalog_products_v3'; 
+        const CACHE_KEY = 'katalog_products_v3'; // Versi baru
         
         // 1. Cek Cache
         try {
@@ -63,18 +62,11 @@
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num);
 
-    // --- OPTIMASI GAMBAR (NO COMPRESSION) ---
+    // --- PERBAIKAN: DISABLE KOMPRESI CLOUDINARY ---
+    // Mengembalikan URL asli tanpa manipulasi parameter Cloudinary
     const optimizeUrl = (url) => {
         return url; 
     };
-
-    // --- NAVIGASI INSTANT (STATE PASSING) ---
-    function openProduct(item) {
-        // Pindah halaman sambil membawa data produk (instant load)
-        goto(`/produk/${item.slug}`, { 
-            state: { productInit: item } 
-        });
-    }
 
     // --- STATE UI ---
     let filter = $state('all');
@@ -198,10 +190,7 @@
                 {#each visibleProducts as item (item.id || item.name)}
                     {@const diskon = hitungDiskon(item.price, item.strike_price)}
                     
-                    <button 
-                        onclick={() => openProduct(item)} 
-                        class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col relative group overflow-hidden hover:shadow-md transition-all duration-300 text-left w-full"
-                    >
+                    <a href="/produk/{item.slug}" class="bg-white rounded-xl shadow-sm border border-gray-100 flex flex-col relative group overflow-hidden hover:shadow-md transition-all duration-300">
                         <div class="relative w-full aspect-[3/4] bg-gray-50">
                             {#if diskon > 0}
                                 <div class="absolute top-0 left-0 bg-[#C4161C] text-white text-[9px] font-bold px-2 py-1 z-10 rounded-br-lg">-{diskon}%</div>
@@ -231,7 +220,7 @@
                                 <div class="text-sm font-extrabold text-gray-900">{formatRupiah(item.price)}</div>
                             </div>
                         </div>
-                    </button>
+                    </a>
                 {/each}
             </div>
 
