@@ -59,20 +59,28 @@
         return input.replace(/\D/g, '');
     }
 
-    // --- 4. SUBMIT (CREATE / UPDATE) ---
+    // --- 4. SUBMIT (OPTIMISTIC UI) ---
     async function handleSubmit(e) {
         e.preventDefault();
-        isSubmitting = true;
         
-        // Sanitasi Nomor WA sebelum kirim
+        // 1. Ambil data & Sanitasi
         const cleanPhone = sanitizePhone(formData.whatsapp);
-        // Jika user input 0812..., ubah jadi 62812... (Opsional, sesuaikan kebutuhan)
-        // const finalPhone = cleanPhone.startsWith('0') ? '62' + cleanPhone.slice(1) : cleanPhone;
         const payload = { ...formData, whatsapp: cleanPhone };
+        const isEditMode = isEditing; 
 
+        // 2. TUTUP MODAL SEGERA (Agar tidak menunggu)
+        showModal = false;
+
+        // 3. Reset form jika mode tambah (agar siap input lagi)
+        if (!isEditMode) {
+            formData = { id: null, name: '', whatsapp: '', address: '', maps_url: '', is_active: true };
+        }
+
+        // 4. Proses di background
+        isSubmitting = true;
         const token = localStorage.getItem("token");
-        const method = isEditing ? "PUT" : "POST";
-        const url = isEditing ? `${API_BASE}/branches/${formData.id}` : `${API_BASE}/branches`;
+        const method = isEditMode ? "PUT" : "POST";
+        const url = isEditMode ? `${API_BASE}/branches/${payload.id}` : `${API_BASE}/branches`;
 
         try {
             const res = await fetch(url, {
@@ -85,15 +93,13 @@
             });
 
             if (res.ok) {
-                alert(isEditing ? "Cabang Berhasil Diupdate!" : "Cabang Berhasil Ditambahkan!");
-                closeModal();
-                loadBranches();
+                loadBranches(); // Refresh data di tabel
             } else {
                 const err = await res.json();
-                alert("Gagal: " + (err.detail || "Terjadi kesalahan"));
+                alert("Gagal menyimpan: " + (err.detail || "Terjadi kesalahan"));
             }
         } catch (error) {
-            alert("Error koneksi server.");
+            alert("Error koneksi server. Data mungkin tidak tersimpan.");
         } finally {
             isSubmitting = false;
         }
