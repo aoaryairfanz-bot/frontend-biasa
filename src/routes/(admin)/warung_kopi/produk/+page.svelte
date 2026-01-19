@@ -18,7 +18,7 @@
     let activeCategory = $state('all'); 
     let viewMode = $state('list'); 
     let currentPage = $state(1);
-    let itemsPerPage = 10; 
+    let itemsPerPage = 20; 
     let isImporting = $state(false);
     let excelInput;
 
