@@ -943,42 +943,46 @@
     let isImporting = $state(false);
     let excelInput;
 
-    const CACHE_KEY = 'admin_products_cache_v1'; // Kunci penyimpanan sesi
+    const CACHE_KEY = 'admin_products_cache_v1';
 
-    // --- 2. FETCH DATA (CACHE FIRST STRATEGY) ---
+    // --- 2. FETCH DATA (CACHE FIRST + STALE WHILE REVALIDATE) ---
     onMount(async () => {
         const token = localStorage.getItem("token");
         if (!token) { goto('/login'); return; }
 
-        // A. AMBIL DARI CACHE DULU (AGAR INSTANT)
+        // A. Load Cache (Instan)
         try {
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
                 const parsed = JSON.parse(cached);
                 if (Array.isArray(parsed) && parsed.length > 0) {
                     products = parsed;
-                    isLoadingData = false; // Langsung hilangkan loading
+                    isLoadingData = false;
                 }
             }
         } catch (e) { console.error("Cache Error", e); }
 
-        // B. FETCH KE SERVER (BACKGROUND SYNC)
-        // Tetap jalan walaupun cache sudah ada, untuk cek data baru
+        // B. Sync Server (Background)
+        await refreshDataInBackground();
+    });
+
+    // Fungsi untuk Refresh Data dari Server (Dipakai saat Init & Setelah Upload)
+    async function refreshDataInBackground() {
+        const token = localStorage.getItem("token");
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/`, {
+            // Tambah timestamp agar tidak kena cache browser
+            const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
             if (res.ok) {
                 const data = await res.json();
                 
-                // Normalisasi Data
                 let finalData = [];
                 if (Array.isArray(data)) finalData = data;
                 else if (data.products) finalData = data.products;
                 else if (data.data) finalData = data.data;
 
-                // Update State & Simpan Cache Baru
                 if (finalData.length > 0) {
                     products = finalData;
                     sessionStorage.setItem(CACHE_KEY, JSON.stringify(finalData));
@@ -992,34 +996,30 @@
         } finally {
             isLoadingData = false;
         }
-    });
+    }
 
     // --- 3. STATE MODAL & FORM ---
     let showModal = $state(false);
     let editingId = $state(null);
 
-    // Form Data
     let formData = $state({
         name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '',
         weight: '', length: '', width: '', height: '', diameter: '',
         isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: ''
     });
 
-    // File Storage
     let fileStorage = $state({ foto_1: null, foto_2: null, foto_3: null, video: null });
     let previews = $state({ foto_1: null, foto_2: null, foto_3: null, video: null });
 
     // --- 4. UPLOAD QUEUE ---
     let activeUploads = $state([]); 
 
-    // --- 5. LOGIKA FILTER (SEARCH SKU & SUBKATEGORI) ---
+    // --- 5. LOGIKA FILTER ---
     let filteredProducts = $derived(products.filter(p => {
         const term = searchQuery.toLowerCase();
-        // Pencarian mencakup Nama, SKU, dan Subkategori
         const matchesSearch = (p.name && p.name.toLowerCase().includes(term)) || 
                               (p.sku && p.sku.toLowerCase().includes(term)) ||
                               (p.subcategory && p.subcategory.toLowerCase().includes(term));
-        
         const matchesCategory = activeCategory === 'all' ? true : p.category === activeCategory;
         return matchesSearch && matchesCategory;
     }));
@@ -1031,7 +1031,7 @@
     // --- 6. HELPER ---
     function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
     function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
-    function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-50' : stock < 5 ? 'text-orange-600 bg-orange-50' : 'text-green-600 bg-green-50'; }
+    function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
     function changePage(newPage) { if (newPage >= 1 && newPage <= totalPages) currentPage = newPage; }
 
     function handleFileChange(e, fieldName) {
@@ -1066,7 +1066,7 @@
         showModal = true;
     }
 
-    // --- 8. UPLOAD BACKGROUND (NO COMPRESSION) ---
+    // --- 8. UPLOAD MANUAL (NO COMPRESSION) ---
     function handleQueueUpload(e) {
         e.preventDefault();
         const currentData = { ...formData }; 
@@ -1083,20 +1083,16 @@
 
     async function processBackgroundUpload(uploadId, dataPayload, filesPayload, editId) {
         const token = localStorage.getItem("token");
-        
         try {
             const dataToSend = new FormData();
-
-            // UPLOAD FILE ASLI (Bypass compression)
             const imageFields = ['foto_1', 'foto_2', 'foto_3'];
             for (const field of imageFields) {
                 if (filesPayload[field] && filesPayload[field] instanceof File) {
-                    dataToSend.append(field, filesPayload[field]); // Langsung file asli
+                    dataToSend.append(field, filesPayload[field]); 
                 }
             }
             if (filesPayload.video instanceof File) dataToSend.append('video', filesPayload.video);
 
-            // Data Teks
             dataToSend.append('name', toTitleCase(dataPayload.name));
             dataToSend.append('subcategory', toTitleCase(dataPayload.subcategory) || '');
             dataToSend.append('sku', dataPayload.sku || '');
@@ -1109,7 +1105,6 @@
                 if (dataPayload[key]) dataToSend.append(key, String(dataPayload[key]));
             });
 
-            // Kirim ke API
             let url = `${PUBLIC_API_URL}/products/`;
             let method = "POST";
             if (editId) { url = `${PUBLIC_API_URL}/products/${editId}`; method = "PUT"; }
@@ -1122,7 +1117,6 @@
 
             if (res.ok) {
                 updateUploadStatus(uploadId, 'success');
-                // Refresh data tanpa reload halaman
                 refreshDataInBackground();
             } else {
                 const err = await res.json();
@@ -1137,51 +1131,63 @@
     function updateUploadStatus(id, status, msg = '') {
         activeUploads = activeUploads.map(u => u.id === id ? { ...u, status, msg } : u);
         if (status === 'success') {
-            setTimeout(() => {
-                activeUploads = activeUploads.filter(u => u.id !== id);
-            }, 4000);
+            setTimeout(() => activeUploads = activeUploads.filter(u => u.id !== id), 4000);
         }
     }
 
-    // Refresh data dan update cache
-    async function refreshDataInBackground() {
+    // --- 9. IMPORT EXCEL (PERBAIKAN) ---
+    async function handleExcelUpload(e) {
+        const file = e.target.files[0];
+        if (!file) return;
+
+        isImporting = true;
         const token = localStorage.getItem("token");
-        const res = await fetch(`${PUBLIC_API_URL}/products/`, { headers: { "Authorization": `Bearer ${token}` }});
-        if(res.ok) {
-            const data = await res.json();
-            let newData = [];
-            if(Array.isArray(data)) newData = data;
-            else if(data.products) newData = data.products;
-            else if(data.data) newData = data.data;
-            
-            products = newData;
-            sessionStorage.setItem(CACHE_KEY, JSON.stringify(newData)); // Update Cache
+        const dataExcel = new FormData();
+        dataExcel.append('file', file); // Pastikan key 'file' sesuai backend
+
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/products/import`, { 
+                method: "POST", 
+                headers: { 
+                    "Authorization": `Bearer ${token}` 
+                    // JANGAN set Content-Type header manual untuk FormData!
+                }, 
+                body: dataExcel 
+            });
+
+            const result = await res.json();
+
+            if (res.ok) { 
+                // Tampilkan pesan detail dari server (penting utk debugging)
+                const msg = result.message || result.msg || "Data berhasil masuk.";
+                alert(`✅ Sukses! ${msg}`); 
+                
+                // Refresh data dengan indikator loading
+                isLoadingData = true;
+                products = []; // Kosongkan sementara agar terlihat refresh
+                await refreshDataInBackground();
+            } else { 
+                console.error("Gagal Import:", result);
+                alert("Gagal Import: " + (result.detail || result.message || "Cek format kolom Excel")); 
+            }
+        } catch (err) { 
+            console.error(err);
+            alert("Error koneksi upload."); 
+        } finally { 
+            isImporting = false; 
+            if (excelInput) excelInput.value = ''; 
         }
     }
 
-    // --- 9. DELETE & IMPORT ---
+    // --- 10. DELETE ---
     async function handleDelete(id, name) {
         if (!confirm(`Hapus "${name}"?`)) return;
         const token = localStorage.getItem("token");
         try { 
             await fetch(`${PUBLIC_API_URL}/products/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }); 
-            // Update State & Cache Lokal
             products = products.filter(p => p.id !== id);
             sessionStorage.setItem(CACHE_KEY, JSON.stringify(products));
         } catch { alert("Error koneksi."); }
-    }
-
-    async function handleExcelUpload(e) {
-        const file = e.target.files[0]; if (!file) return; isImporting = true;
-        const token = localStorage.getItem("token"); const dataExcel = new FormData(); dataExcel.append('file', file);
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/import`, { method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: dataExcel });
-            const result = await res.json();
-            if (res.ok) { 
-                alert(`✅ Selesai`); 
-                refreshDataInBackground(); // Refresh data
-            } else { alert("Gagal: " + result.detail); }
-        } catch { alert("Error upload."); } finally { isImporting = false; if (excelInput) excelInput.value = ''; }
     }
 </script>
 
@@ -1279,7 +1285,7 @@
                 {/each}
             </div>
         {:else}
-            <div class="bg-white rounded-3xl shadow-sm overflow-hidden">
+            <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
                 <div class="overflow-x-auto">
                     <table class="w-full text-left border-collapse">
                         <thead>
@@ -1292,10 +1298,7 @@
                             <tr class="group hover:bg-blue-50/30 transition">
                                 <td class="p-4 flex items-center gap-3">
                                     <img src={product.image_1_url || 'https://placehold.co/100?text=No+Img'} alt="img" class="w-10 h-10 rounded-lg object-cover bg-gray-100" />
-                                    <div>
-                                        <div class="font-bold text-gray-800 text-sm line-clamp-1">{product.name}</div>
-                                        <div class="text-xs text-gray-400 font-mono">{product.sku || '-'}</div>
-                                    </div>
+                                    <div><div class="font-bold text-gray-800 text-sm line-clamp-1">{product.name}</div><div class="text-xs text-gray-400 font-mono">{product.sku || '-'}</div></div>
                                 </td>
                                 <td class="p-4 text-xs text-gray-600">{product.subcategory || '-'}</td>
                                 <td class="p-4 text-sm font-bold text-gray-700">{formatRupiah(product.price)}</td>
