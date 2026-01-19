@@ -1,6 +1,6 @@
 <script>
     import { onMount } from 'svelte';
-    import { fly } from 'svelte/transition'; 
+    import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
     import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
@@ -26,14 +26,22 @@
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
 
+    // FILTER SUBCATEGORY (Hanya tampilkan jika bukan BUKU/ALKITAB)
     const subcategories = $derived.by(() => {
         const unique = new Set();
         if (products.length > 0) {
             for (const s of products) {
-                const cat = s.subcategory || s.category;
-                if (cat) {
-                    const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
-                    unique.add(formatted);
+                // Cek apakah produk ini buku/alkitab
+                const isBook = s.category === 'book' || 
+                               (s.name && (s.name.toLowerCase().includes('alkitab') || s.name.toLowerCase().includes('buku')));
+
+                // Jika BUKAN buku, baru ambil subkategorinya
+                if (!isBook) {
+                    const cat = s.subcategory || s.category;
+                    if (cat && cat !== 'nonbook') { // Hindari menampilkan 'nonbook' sebagai nama kategori
+                        const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
+                        unique.add(formatted);
+                    }
                 }
             }
         }
@@ -95,14 +103,14 @@
         return url;
     };
 
-    // --- REVISI: HAPUS OPTIMASI KOMPRESI CLOUDINARY ---
+    // --- REVISI: HAPUS OPTIMASI KOMPRESI CLOUDINARY (Sesuai Permintaan) ---
     const optimizeUrl = (url) => {
         return url; // Kembalikan URL asli agar cepat tanpa proses server
     };
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v8'; // Update versi cache
+        const CACHE_KEY = 'home_data_v9'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         if (cached) {
             try {
@@ -161,7 +169,7 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v8', JSON.stringify({ 
+            sessionStorage.setItem('home_data_v9', JSON.stringify({ 
                 banners, 
                 products,
                 branches 
@@ -179,13 +187,11 @@
     }
 
     // --- LOGIKA BELI (Pilih Cabang) ---
-    // 1. Saat tombol beli diklik, simpan produk dan buka modal
     function buyNow(product) {
         selectedProduct = product;
         showBranchModal = true;
     }
 
-    // 2. Saat cabang dipilih di modal, arahkan ke WA cabang tersebut
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         
@@ -221,7 +227,11 @@
                 <div class="relative w-full aspect-[2.5/1] rounded-2xl overflow-hidden shadow-sm bg-gray-100 mx-auto max-w-[1200px]">
                     {#each displayBanners as banner, i}
                         {#if i === currentIndex}
-                            <div in:fly={{ x: 300, duration: 400 }} out:fly={{ x: -300, duration: 400 }} class="absolute inset-0 w-full h-full">
+                            <div 
+                                in:fly={{ x: 100, duration: 600, opacity: 0 }} 
+                                out:fly={{ x: -100, duration: 600, opacity: 0 }} 
+                                class="absolute inset-0 w-full h-full"
+                            >
                                 <img 
                                     src={optimizeUrl(banner.image_url)} 
                                     alt="Promo" 
@@ -289,7 +299,7 @@
                                 <div class="relative w-full aspect-[3/4] mb-2 overflow-hidden rounded-xl bg-gray-50 border-none shadow-sm">
                                     <a href="/produk/{item.slug}">
                                         <img 
-                                            src={optimizeUrl(item.image_1_url, 250, 'eco')} 
+                                            src={optimizeUrl(item.image_1_url)} 
                                             alt={item.name} 
                                             loading="lazy" decoding="async" width="150" height="200"
                                             class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
