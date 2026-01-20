@@ -1,7 +1,7 @@
 <script>
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon, BoxIcon } from 'svelte-feather-icons';
+    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, BoxIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
     // AMBIL DATA
@@ -17,11 +17,6 @@
     let branches = $state([]); 
     let showBranchModal = $state(false); 
     let isLoadingBranches = $state(false);
-
-    let centralBranch = $state({
-        name: "Narwastu Store Yogyakarta",
-        address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281"
-    });
 
     let activeIndex = $state(0); 
     let sliderRef; 
@@ -47,10 +42,7 @@
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
                 const raw = await res.json();
-                let list = Array.isArray(raw) ? raw : (raw.data || []);
-                branches = list; 
-                const pusat = list.find(b => b.id === 1);
-                if (pusat) centralBranch = pusat; 
+                branches = Array.isArray(raw) ? raw : (raw.data || []);
             }
         } catch (error) { console.error("Gagal load cabang:", error); }
         finally { isLoadingBranches = false; }
@@ -184,8 +176,8 @@
                         {#each mediaList as item, i}
                             <button 
                                 onclick={() => scrollTo(i)} 
-                                class="relative w-16 h-16 cursor-pointer transition flex-shrink-0 rounded-lg overflow-hidden
-                                {activeIndex === i ? 'opacity-100 ring-2 ring-[#C4161C] ring-offset-2' : 'opacity-40 hover:opacity-100'}"
+                                class="relative w-16 h-16 cursor-pointer transition flex-shrink-0 rounded-lg overflow-hidden border
+                                {activeIndex === i ? 'border-[#C4161C] opacity-100' : 'border-transparent opacity-50 hover:opacity-100'}"
                             >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item)} alt="Thumb" class="w-full h-full object-cover" /> {/if}
@@ -196,33 +188,12 @@
                 </div>
 
                 <div class="flex-1 flex flex-col min-w-0 pt-2">
-                    <div class="mb-6">
+                    <div class="mb-4">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">{product.author || "Narwastu Collection"}</span>
                         <h1 class="text-2xl md:text-4xl font-extrabold text-gray-900 leading-tight">{product.name}</h1>
                     </div>
 
-                    <div class="flex flex-wrap items-center gap-y-3 gap-x-8 text-sm text-gray-600 mb-8 border-y border-gray-100 py-4">
-                        {#if product.sku}
-                            <div class="flex flex-col">
-                                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">SKU</span>
-                                <span class="font-bold text-gray-900">{product.sku}</span>
-                            </div>
-                        {/if}
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Berat</span>
-                            <span class="font-bold text-gray-900">{product.weight ? product.weight + 'g' : '-'}</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Stok</span>
-                            <span class="font-bold text-gray-900">{product.stock || "-"}</span>
-                        </div>
-                        <div class="flex flex-col">
-                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Dimensi</span>
-                            <span class="font-bold text-gray-900">{formatDimensi()}</span>
-                        </div>
-                    </div>
-
-                    <div class="mb-8">
+                    <div class="mb-8 border-b border-gray-100 pb-6">
                         <div class="flex items-baseline gap-3">
                             <span class="text-4xl md:text-5xl font-black text-[#C4161C] tracking-tight">
                                 {formatRupiah(product.final_price)}
@@ -238,9 +209,25 @@
                         </div>
                     </div>
 
-                    <div class="flex items-center gap-2 text-xs text-gray-500 mb-8">
-                        <MapPinIcon size="14" class="text-gray-400"/>
-                        <span>Dikirim dari <span class="font-bold text-gray-700">{centralBranch.name.replace("Narwastu Store ", "")}</span></span>
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-8 border-b border-gray-100 pb-6">
+                        {#if product.sku}
+                            <div class="flex flex-col">
+                                <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">SKU</span>
+                                <span class="font-bold text-gray-900 truncate">{product.sku}</span>
+                            </div>
+                        {/if}
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Berat</span>
+                            <span class="font-bold text-gray-900">{product.weight ? product.weight + 'g' : '-'}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Stok</span>
+                            <span class="font-bold text-gray-900">{product.stock || "-"}</span>
+                        </div>
+                        <div class="flex flex-col">
+                            <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Dimensi</span>
+                            <span class="font-bold text-gray-900 truncate">{formatDimensi()}</span>
+                        </div>
                     </div>
 
                     <div class="mb-10">
@@ -323,42 +310,32 @@
 
     {#if showBranchModal}
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div class="bg-white w-full max-w-4xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-            <div class="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
-                <div>
-                    <h3 class="text-xl font-bold text-gray-900">Pilih Lokasi Cabang</h3>
-                    <p class="text-sm text-gray-500">Hubungi via WhatsApp untuk pemesanan</p>
-                </div>
-                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-red-50 text-gray-400 hover:text-red-500 transition">
+        <div class="bg-white w-full max-w-5xl rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+                <h3 class="text-lg font-bold text-gray-900">Pilih Lokasi</h3>
+                <button onclick={() => showBranchModal = false} class="text-gray-400 hover:text-red-500 transition">
                     <XIcon size="24"/>
                 </button>
             </div>
             
-            <div class="p-6 bg-white overflow-y-auto custom-scrollbar flex-1">
+            <div class="p-5 bg-white overflow-y-auto custom-scrollbar flex-1">
                 {#if isLoadingBranches}
-                    <div class="text-center py-10 text-gray-400 animate-pulse">Memuat data...</div>
+                    <div class="text-center py-10 text-gray-400 text-sm">Memuat data...</div>
                 {:else}
-                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-3">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} class="bg-white p-5 rounded-2xl border border-gray-200 hover:border-[#C4161C] hover:shadow-lg transition-all group text-left flex flex-col h-full active:scale-[0.98]">
-                                <div class="flex items-start gap-4 mb-4">
-                                    <div class="w-10 h-10 rounded-full bg-red-50 text-[#C4161C] flex items-center justify-center shrink-0 group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
-                                        <MapPinIcon size="18"/>
+                            <button onclick={() => chatBranch(branch.whatsapp)} class="border border-gray-200 rounded-lg p-3 hover:border-[#C4161C] hover:bg-red-50/30 transition-all text-left group h-full flex flex-col justify-between">
+                                <div>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase mb-1">
+                                        {#if branch.id === 1} PUSAT {:else} CABANG {/if}
                                     </div>
-                                    <div>
-                                        <div class="text-[10px] font-bold text-gray-400 uppercase tracking-widest mb-1">
-                                            {#if branch.id === 1} PUSAT {:else} CABANG {/if}
-                                        </div>
-                                        <h4 class="font-bold text-gray-800 text-base leading-tight group-hover:text-[#C4161C] transition-colors">
-                                            {branch.name.replace('Narwastu ', '')}
-                                        </h4>
-                                    </div>
+                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm leading-tight mb-2 group-hover:text-[#C4161C]">
+                                        {branch.name.replace('Narwastu ', '')}
+                                    </h4>
                                 </div>
-                                <div class="mt-auto pt-4 border-t border-gray-50 w-full">
-                                    <div class="w-full flex items-center justify-center gap-2 bg-green-50 text-green-700 font-bold py-2.5 rounded-xl group-hover:bg-green-600 group-hover:text-white transition-colors text-sm">
-                                        <MessageCircleIcon size="16"/>
-                                        <span>Hubungi via WhatsApp</span>
-                                    </div>
+                                <div class="flex items-center gap-1.5 text-[#C4161C] text-[10px] font-bold mt-auto">
+                                    <MessageCircleIcon size="12"/>
+                                    <span>Chat WA</span>
                                 </div>
                             </button>
                         {/each}
