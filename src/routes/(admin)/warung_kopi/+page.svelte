@@ -3,13 +3,14 @@
     import { PUBLIC_API_URL } from '$env/static/public';
     import { 
         PackageIcon, UsersIcon, MapPinIcon, 
-        AlertCircleIcon, MoreHorizontalIcon, ArrowUpRightIcon 
+        AlertCircleIcon, TagIcon // [BARU] Tambah Icon Tag
     } from 'svelte-feather-icons';
 
     // --- STATE ---
     let totalProducts = $state(0);
     let totalUsers = $state(0);
     let totalBranches = $state(0);
+    let totalDiscounts = $state(0); // [BARU] State Diskon
     let lowStockItems = $state([]);
     let isLoading = $state(true);
 
@@ -19,7 +20,8 @@
             await Promise.all([
                 fetchProducts(),
                 fetchUsers(),
-                fetchBranches()
+                fetchBranches(),
+                fetchDiscounts() // [BARU] Fetch Diskon
             ]);
         } catch (e) {
             console.error("Gagal load dashboard:", e);
@@ -40,12 +42,11 @@
             lowStockItems = list
                 .filter(p => (p.stock || 0) < 5)
                 .sort((a, b) => a.stock - b.stock)
-                .slice(0, 5); // Ambil 5 teratas
+                .slice(0, 5); 
         }
     }
 
     async function fetchUsers() {
-        // Asumsi API user ada, dan butuh token (biasanya)
         const token = localStorage.getItem('token');
         if(!token) return;
 
@@ -69,8 +70,21 @@
         }
     }
 
+    // [BARU] Fungsi Fetch Diskon
+    async function fetchDiscounts() {
+        const token = localStorage.getItem('token');
+        const res = await fetch(`${PUBLIC_API_URL}/discounts/`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+        });
+        if (res.ok) {
+            const data = await res.json();
+            // Hitung hanya yang AKTIF
+            const active = data.filter(d => d.is_active).length;
+            totalDiscounts = active;
+        }
+    }
+
     // --- DERIVED STATS ---
-    // Menggunakan $derived agar reaktif jika data berubah
     const stats = $derived([
         { 
             title: 'Total Produk', 
@@ -95,24 +109,22 @@
             bg: 'bg-[#F3E8FF]', 
             text: 'text-[#9333EA]', 
             icon: MapPinIcon 
+        },
+        // [BARU] Statistik Voucher
+        { 
+            title: 'Voucher Aktif', 
+            value: isLoading ? '...' : totalDiscounts, 
+            desc: 'Promo berjalan', 
+            bg: 'bg-[#FCE7F3]', 
+            text: 'text-[#DB2777]', 
+            icon: TagIcon 
         }
     ]);
 </script>
 
 <div class="space-y-8">
     
-    <!-- <div class="flex flex-col md:flex-row justify-between items-end md:items-center gap-4">
-        <div>
-            <h2 class="text-xl font-bold text-gray-800">Overview Toko</h2>
-            <p class="text-sm text-gray-500">Ringkasan data Narwastu Store.</p>
-        </div>
-        <button onclick={() => window.location.reload()} class="bg-gray-900 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-800 transition shadow-lg shadow-gray-200 flex items-center gap-2 active:scale-95">
-            <ArrowUpRightIcon size="16" />
-            <span>Refresh Data</span>
-        </button>
-    </div> -->
-
-    <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+    <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
         {#each stats as stat}
         <div class="p-6 rounded-3xl {stat.bg} transition hover:-translate-y-1 hover:shadow-md duration-300">
             <div class="flex justify-between items-start mb-8">
