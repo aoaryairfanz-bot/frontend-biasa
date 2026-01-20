@@ -26,16 +26,21 @@
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // FILTER KATEGORI (Clean List)
+    // FILTER KATEGORI (Sesuai Input Database)
     const subcategories = $derived.by(() => {
         const unique = new Set();
         if (products.length > 0) {
             for (const s of products) {
-                // Kecualikan buku jika ingin fokus merchandise, atau atur sesuai selera
-                const cat = s.subcategory || s.category;
-                if (cat && cat !== 'nonbook') { 
-                    const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
-                    unique.add(formatted);
+                const isBook = s.category === 'book' || 
+                               (s.name && (s.name.toLowerCase().includes('alkitab') || s.name.toLowerCase().includes('buku')));
+
+                if (!isBook) {
+                    const cat = s.subcategory || s.category;
+                    if (cat && cat !== 'nonbook') { 
+                        // [UPDATE] Gunakan nama asli dari database, hanya di-trim spasi
+                        const formatted = cat.trim(); 
+                        unique.add(formatted);
+                    }
                 }
             }
         }
@@ -46,17 +51,16 @@
 
     const bestSellers = $derived.by(() => {
         if (products.length === 0) return [];
-        // Simulasi bestseller (sort by stock terendah atau logic lain)
+        // Simulasi bestseller
         return [...products].sort(() => 0.5 - Math.random()).slice(0, 12);
     });
 
-    // FILTER PROMO (Menggunakan Data Backend: discount_label / strike_price)
+    // FILTER PROMO (Menggunakan Data Backend)
     const bestPromos = $derived.by(() => {
         if (products.length === 0) return [];
         return products
             .filter(p => p.discount_label || (p.display_strike_price > p.final_price))
             .sort((a, b) => {
-                // Prioritaskan yang punya label diskon tertinggi
                 const discA = parseInt(a.discount_label) || 0;
                 const discB = parseInt(b.discount_label) || 0;
                 return discB - discA;
@@ -64,12 +68,12 @@
             .slice(0, 12);
     });
 
-    // --- ICON MAP (Opsional) ---
-    const getSubIcon = (name) => kategoriImg; // Placeholder icon kategori
+    // --- ICON MAP ---
+    const getSubIcon = (name) => kategoriImg; 
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v11'; // Update versi cache
+        const CACHE_KEY = 'home_data_v12'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         
         if (cached) {
@@ -127,7 +131,7 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v11', JSON.stringify({ banners, products, branches }));
+            sessionStorage.setItem('home_data_v12', JSON.stringify({ banners, products, branches }));
         }
     }
 
@@ -163,12 +167,15 @@
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     function formatRupiah(angka) { return rupiahFormatter.format(angka || 0); }
-    function optimizeUrl(url) { return url; } // Bypass Cloudinary transform agar cepat
+    function optimizeUrl(url) { return url; }
 </script>
 
 <svelte:head>
     <title>Narwastu - Toko Kristiani</title>
     <meta name="description" content="Toko Rohani Narwastu menjual perlengkapan ibadah." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </svelte:head>
 
 <style>
@@ -226,7 +233,7 @@
                         Semua Produk
                     </a>
                     {#each subcategories as sub}
-                        <a href="/katalog?search={sub}" class="px-5 py-2.5 rounded-full bg-gray-50 border border-gray-100 text-gray-600 text-xs font-semibold whitespace-nowrap shrink-0 hover:border-[#C4161C] hover:text-[#C4161C] hover:bg-white transition-all snap-start">
+                        <a href="/katalog?search={sub}" class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-semibold whitespace-nowrap shrink-0 hover:border-[#C4161C] hover:text-[#C4161C] hover:shadow-sm transition-all snap-start">
                             {sub}
                         </a>
                     {/each}
@@ -236,7 +243,7 @@
     </nav>
 
     {#snippet productCard(item)}
-        <div class="group relative flex flex-col h-full">
+        <div class="group relative flex flex-col h-full cursor-pointer">
             <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
                 <a href="/produk/{item.slug}" class="block w-full h-full">
                     <img 
@@ -254,7 +261,7 @@
                 {/if}
             </div>
 
-            <div class="flex flex-col flex-grow">
+            <div class="flex flex-col flex-grow px-1">
                 <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">
                     {item.subcategory || item.category || 'Umum'}
                 </div>
@@ -263,7 +270,7 @@
                     <a href="/produk/{item.slug}">{item.name}</a>
                 </h3>
 
-                <div class="mt-auto pt-2">
+                <div class="mt-auto pt-1">
                     <div class="flex flex-col items-start">
                         {#if item.display_strike_price > item.final_price}
                             <span class="text-[10px] text-gray-400 line-through decoration-gray-300 mb-0.5">
