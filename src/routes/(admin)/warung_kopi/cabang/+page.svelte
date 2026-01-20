@@ -1,7 +1,7 @@
 <script>
     import { 
         PlusIcon, MapPinIcon, Trash2Icon, PhoneIcon, Edit2Icon,
-        XIcon, LoaderIcon, MapIcon, PowerIcon, SearchIcon
+        XIcon, LoaderIcon, MapIcon, SearchIcon, RefreshCwIcon, AlertCircleIcon
     } from 'svelte-feather-icons';
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -11,8 +11,11 @@
     let isLoading = $state(true);
     let showModal = $state(false);
     let isSubmitting = $state(false);
-    let isEditing = $state(false); // Mode Edit
+    let isEditing = $state(false);
     let searchQuery = $state('');
+
+    const CACHE_KEY = 'admin_branches_cache_v1';
+    const API_BASE = PUBLIC_API_URL;
 
     // Form State
     let formData = $state({
@@ -24,17 +27,37 @@
         is_active: true
     });
 
-    const API_BASE = PUBLIC_API_URL;
-
-    // --- 1. LOAD DATA ---
-    async function loadBranches() {
-        isLoading = true;
+    // --- 1. LOAD DATA (CACHE FIRST + SYNC) ---
+    onMount(async () => {
+        // A. Cek Cache (Instan)
         try {
-            // Ambil semua cabang termasuk yg nonaktif (biar admin bisa lihat)
-            const res = await fetch(`${API_BASE}/branches?include_inactive=true`);
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                branches = JSON.parse(cached);
+                isLoading = false; // Langsung tampil
+            }
+        } catch (e) { console.error("Cache error", e); }
+
+        // B. Fetch Server (Background Sync)
+        await loadBranchesFromServer();
+    });
+
+    async function loadBranchesFromServer() {
+        try {
+            const token = localStorage.getItem("token");
+            const res = await fetch(`${API_BASE}/branches?include_inactive=true`, {
+                headers: { "Authorization": `Bearer ${token}` }
+            });
+            
             if (res.ok) {
                 const raw = await res.json();
-                branches = Array.isArray(raw) ? raw : (raw.data || []);
+                const data = Array.isArray(raw) ? raw : (raw.data || []);
+                
+                // Update jika ada perubahan
+                if (JSON.stringify(data) !== JSON.stringify(branches)) {
+                    branches = data;
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                }
             }
         } catch (error) {
             console.error("Error load cabang:", error);
@@ -42,8 +65,6 @@
             isLoading = false;
         }
     }
-
-    onMount(loadBranches);
 
     // --- 2. SEARCH FILTER ---
     let filteredBranches = $derived(
@@ -53,94 +74,119 @@
         )
     );
 
-    // --- 3. SANITASI INPUT WA ---
-    function sanitizePhone(input) {
-        // Hapus semua karakter kecuali angka
-        return input.replace(/\D/g, '');
-    }
+    // --- 3. HELPER ---
+    function sanitizePhone(input) { return input.replace(/\D/g, ''); }
 
     // --- 4. SUBMIT (OPTIMISTIC UI) ---
     async function handleSubmit(e) {
         e.preventDefault();
         
-        // 1. Ambil data & Sanitasi
         const cleanPhone = sanitizePhone(formData.whatsapp);
         const payload = { ...formData, whatsapp: cleanPhone };
         const isEditMode = isEditing; 
-
-        // 2. TUTUP MODAL SEGERA (Agar tidak menunggu)
-        showModal = false;
-
-        // 3. Reset form jika mode tambah (agar siap input lagi)
-        if (!isEditMode) {
-            formData = { id: null, name: '', whatsapp: '', address: '', maps_url: '', is_active: true };
-        }
-
-        // 4. Proses di background
-        isSubmitting = true;
         const token = localStorage.getItem("token");
-        const method = isEditMode ? "PUT" : "POST";
-        const url = isEditMode ? `${API_BASE}/branches/${payload.id}` : `${API_BASE}/branches`;
 
+        // TUTUP MODAL SEGERA
+        showModal = false;
+        
+        // Optimistic Update (Update lokal dulu)
+        let oldBranches = [...branches];
+        if (isEditMode) {
+            branches = branches.map(b => b.id === payload.id ? payload : b);
+        } else {
+            // ID sementara untuk tampilan
+            const tempId = Date.now();
+            branches = [...branches, { ...payload, id: tempId }];
+        }
+        
+        isSubmitting = true;
+        
         try {
+            const method = isEditMode ? "PUT" : "POST";
+            const url = isEditMode ? `${API_BASE}/branches/${payload.id}` : `${API_BASE}/branches`;
+
             const res = await fetch(url, {
                 method: method,
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify(payload)
             });
 
             if (res.ok) {
-                loadBranches(); // Refresh data di tabel
+                // Sukses: Sync data asli dari server
+                loadBranchesFromServer();
+                if (!isEditMode) resetForm();
             } else {
-                const err = await res.json();
-                alert("Gagal menyimpan: " + (err.detail || "Terjadi kesalahan"));
+                throw new Error("Gagal menyimpan");
             }
         } catch (error) {
-            alert("Error koneksi server. Data mungkin tidak tersimpan.");
+            // Rollback jika gagal
+            branches = oldBranches;
+            alert("Gagal menyimpan data. Cek koneksi.");
         } finally {
             isSubmitting = false;
         }
     }
 
-    // --- 5. TOGGLE STATUS (AKTIF/NONAKTIF) ---
+    function resetForm() {
+        formData = { id: null, name: '', whatsapp: '', address: '', maps_url: '', is_active: true };
+    }
+
+    // --- 5. TOGGLE STATUS (OPTIMISTIC) ---
     async function toggleStatus(branch) {
         if(!confirm(`Ubah status cabang ${branch.name}?`)) return;
         
         const token = localStorage.getItem("token");
+        const oldBranches = [...branches];
+        
+        // Optimistic Update
+        const updatedBranches = branches.map(b => b.id === branch.id ? {...b, is_active: !b.is_active} : b);
+        branches = updatedBranches;
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(updatedBranches));
+
         try {
             const res = await fetch(`${API_BASE}/branches/${branch.id}`, {
                 method: "PUT",
-                headers: {
-                    "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}`
-                },
+                headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}` },
                 body: JSON.stringify({ ...branch, is_active: !branch.is_active })
             });
-            if(res.ok) loadBranches();
-        } catch(e) { alert("Gagal update status."); }
+            
+            if (!res.ok) throw new Error("Gagal");
+        } catch(e) { 
+            branches = oldBranches; // Rollback
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify(oldBranches));
+            alert("Gagal update status."); 
+        }
     }
 
-    // --- 6. DELETE ---
+    // --- 6. DELETE (OPTIMISTIC) ---
     async function handleDelete(id, name) {
         if (!confirm(`Hapus permanen cabang ${name}?`)) return;
+        
         const token = localStorage.getItem("token");
+        const oldBranches = [...branches];
+
+        // Optimistic Delete
+        const newBranches = branches.filter(b => b.id !== id);
+        branches = newBranches;
+        sessionStorage.setItem(CACHE_KEY, JSON.stringify(newBranches));
+
         try {
             const res = await fetch(`${API_BASE}/branches/${id}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
-            if (res.ok) loadBranches();
-            else alert("Gagal hapus cabang.");
-        } catch (error) { alert("Error koneksi."); }
+            if (!res.ok) throw new Error("Gagal");
+        } catch (error) { 
+            branches = oldBranches; // Rollback
+            sessionStorage.setItem(CACHE_KEY, JSON.stringify(oldBranches));
+            alert("Gagal menghapus data."); 
+        }
     }
 
     // --- MODAL HELPER ---
     function openAddModal() {
         isEditing = false;
-        formData = { id: null, name: '', whatsapp: '', address: '', maps_url: '', is_active: true };
+        resetForm();
         showModal = true;
     }
 
@@ -148,10 +194,6 @@
         isEditing = true;
         formData = { ...branch };
         showModal = true;
-    }
-
-    function closeModal() {
-        showModal = false;
     }
 </script>
 
@@ -182,13 +224,13 @@
         </div>
     </div>
 
-    {#if isLoading}
-        <div class="flex flex-col items-center justify-center py-20 gap-3">
+    {#if isLoading && branches.length === 0}
+        <div class="flex flex-col items-center justify-center py-20 gap-3 text-gray-400">
             <LoaderIcon class="animate-spin text-gray-300" size="40" />
-            <p class="text-gray-400 font-medium animate-pulse text-xs">Memuat Data...</p>
+            <p class="font-medium animate-pulse text-xs">Memuat Data...</p>
         </div>
     {:else}
-        <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="bg-white rounded-3xl shadow-sm border border-gray-100 overflow-hidden">
             <div class="overflow-x-auto">
                 <table class="w-full text-left border-collapse">
                     <thead>
@@ -200,38 +242,38 @@
                             <th class="p-4 font-bold text-right">Aksi</th>
                         </tr>
                     </thead>
-                    <tbody class="divide-y divide-gray-50 text-sm text-gray-700">
+                    <tbody class="divide-y divide-gray-100 text-sm text-gray-700">
                         {#if filteredBranches.length === 0}
                             <tr><td colspan="5" class="p-8 text-center text-gray-400 italic">Tidak ada data cabang.</td></tr>
                         {:else}
-                            {#each filteredBranches as branch}
+                            {#each filteredBranches as branch (branch.id)}
                             <tr class="hover:bg-red-50/30 transition group">
-                                <td class="p-4 text-center">
+                                <td class="p-4 text-center align-middle">
                                     <button 
                                         onclick={() => toggleStatus(branch)}
-                                        class="w-8 h-5 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none {branch.is_active ? 'bg-green-500' : 'bg-gray-300'}"
+                                        class="w-9 h-5 rounded-full relative transition-colors duration-200 ease-in-out focus:outline-none {branch.is_active ? 'bg-green-500' : 'bg-gray-300'}"
                                         title={branch.is_active ? "Nonaktifkan" : "Aktifkan"}
                                     >
-                                        <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 {branch.is_active ? 'translate-x-3' : 'translate-x-0'}"></span>
+                                        <span class="absolute left-0.5 top-0.5 w-4 h-4 bg-white rounded-full shadow transform transition-transform duration-200 {branch.is_active ? 'translate-x-4' : 'translate-x-0'}"></span>
                                     </button>
                                 </td>
-                                <td class="p-4 font-bold text-gray-800">
-                                    {branch.name}
-                                    {#if branch.id === 1} <span class="ml-2 px-1.5 py-0.5 bg-blue-100 text-blue-600 text-[10px] rounded uppercase">Pusat</span> {/if}
+                                <td class="p-4 align-middle">
+                                    <div class="font-bold text-gray-800">{branch.name}</div>
+                                    {#if branch.id === 1} <span class="px-1.5 py-0.5 bg-blue-50 text-blue-600 text-[10px] rounded uppercase font-bold tracking-wider">Pusat</span> {/if}
                                 </td>
-                                <td class="p-4 font-mono text-gray-600">{branch.whatsapp}</td>
-                                <td class="p-4 max-w-xs truncate text-gray-500" title={branch.address}>{branch.address}</td>
-                                <td class="p-4 text-right">
-                                    <div class="flex items-center justify-end gap-2">
+                                <td class="p-4 font-mono text-gray-600 align-middle">{branch.whatsapp}</td>
+                                <td class="p-4 max-w-xs truncate text-gray-500 align-middle" title={branch.address}>{branch.address}</td>
+                                <td class="p-4 text-right align-middle">
+                                    <div class="flex items-center justify-end gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                                         {#if branch.maps_url}
-                                            <a href={branch.maps_url} target="_blank" class="p-2 text-blue-400 hover:bg-blue-50 rounded-lg transition" title="Lihat Map">
+                                            <a href={branch.maps_url} target="_blank" class="p-1.5 text-blue-400 hover:bg-blue-50 rounded-lg transition" title="Lihat Map">
                                                 <MapIcon size="16"/>
                                             </a>
                                         {/if}
-                                        <button onclick={() => openEditModal(branch)} class="p-2 text-orange-400 hover:bg-orange-50 rounded-lg transition" title="Edit">
+                                        <button onclick={() => openEditModal(branch)} class="p-1.5 text-orange-400 hover:bg-orange-50 rounded-lg transition" title="Edit">
                                             <Edit2Icon size="16"/>
                                         </button>
-                                        <button onclick={() => handleDelete(branch.id, branch.name)} class="p-2 text-red-400 hover:bg-red-50 rounded-lg transition" title="Hapus">
+                                        <button onclick={() => handleDelete(branch.id, branch.name)} class="p-1.5 text-red-400 hover:bg-red-50 rounded-lg transition" title="Hapus">
                                             <Trash2Icon size="16"/>
                                         </button>
                                     </div>
@@ -247,13 +289,13 @@
 </div>
 
 {#if showModal}
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
-    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200">
+<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl w-full max-w-lg shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
         <div class="flex justify-between items-center p-6 border-b border-gray-100 bg-gray-50">
             <h3 class="text-xl font-bold text-gray-800 uppercase italic tracking-tighter">
                 {isEditing ? 'Edit Cabang' : 'Tambah Cabang Baru'}
             </h3>
-            <button onclick={closeModal} class="text-gray-400 hover:text-red-500 transition p-2 bg-white rounded-full shadow-sm">
+            <button onclick={() => showModal = false} class="text-gray-400 hover:text-red-500 transition p-2 bg-white rounded-full shadow-sm">
                 <XIcon size="20" />
             </button>
         </div>
@@ -280,15 +322,14 @@
                         placeholder="0812xxxxxxxx" 
                     />
                 </div>
-                <p class="text-[10px] text-gray-400 mt-1 ml-1">*Karakter +, -, spasi otomatis dihapus.</p>
             </div>
 
             <div>
-                <label class="block text-[10px] font-black text-gray-400 uppercase mb-1" for="maps">Link Google Maps (URL)</label>
+                <label class="block text-[10px] font-black text-gray-400 uppercase mb-1" for="maps">Link Google Maps</label>
                 <input 
                     type="url" id="maps" bind:value={formData.maps_url} 
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-red-500 outline-none transition text-sm font-medium" 
-                    placeholder="https://maps.google.com/..." 
+                    placeholder="https://goo.gl/maps/..." 
                 />
             </div>
 
@@ -301,17 +342,8 @@
                 ></textarea>
             </div>
 
-            {#if isEditing}
-            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
-                <div class="text-xs font-bold text-gray-500 uppercase flex-1">Status Toko</div>
-                <button type="button" onclick={() => formData.is_active = !formData.is_active} class="relative w-10 h-6 rounded-full transition {formData.is_active ? 'bg-green-500' : 'bg-gray-300'}">
-                    <span class="absolute left-1 top-1 w-4 h-4 bg-white rounded-full transition transform {formData.is_active ? 'translate-x-4' : ''}"></span>
-                </button>
-            </div>
-            {/if}
-
             <div class="pt-4 border-t border-gray-100 flex gap-3">
-                <button type="button" onclick={closeModal} 
+                <button type="button" onclick={() => showModal = false} 
                     class="flex-1 px-6 py-3 rounded-xl text-gray-400 font-bold hover:bg-gray-100 transition uppercase text-xs">
                     Batal
                 </button>
