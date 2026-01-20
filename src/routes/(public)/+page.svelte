@@ -31,14 +31,12 @@
         const unique = new Set();
         if (products.length > 0) {
             for (const s of products) {
-                // Cek apakah produk ini buku/alkitab
                 const isBook = s.category === 'book' || 
                                (s.name && (s.name.toLowerCase().includes('alkitab') || s.name.toLowerCase().includes('buku')));
 
-                // Jika BUKAN buku, baru ambil subkategorinya
                 if (!isBook) {
                     const cat = s.subcategory || s.category;
-                    if (cat && cat !== 'nonbook') { // Hindari menampilkan 'nonbook' sebagai nama kategori
+                    if (cat && cat !== 'nonbook') { 
                         const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
                         unique.add(formatted);
                     }
@@ -54,7 +52,8 @@
         if (products.length === 0) return [];
         const sellers = [];
         const processedSubs = new Set();
-        const sorted = [...products].sort((a, b) => b.price - a.price);
+        // Urutkan berdasarkan harga tertinggi sebagai simulasi bestseller
+        const sorted = [...products].sort((a, b) => b.final_price - a.final_price);
         for (const p of sorted) {
             const sub = p.subcategory || p.category || "Lainnya";
             if (!processedSubs.has(sub)) {
@@ -66,11 +65,17 @@
         return sellers;
     });
 
+    // [UPDATE] PROMO: Filter berdasarkan discount_label dari backend
     const bestPromos = $derived.by(() => {
         if (products.length === 0) return [];
         return products
-            .filter(p => p.strike_price > p.price)
-            .sort((a, b) => hitungDiskon(b.price, b.strike_price) - hitungDiskon(a.price, a.strike_price))
+            .filter(p => p.discount_label || (p.display_strike_price > p.final_price))
+            // Sortir diskon terbesar (jika label ada %)
+            .sort((a, b) => {
+                const discA = parseInt(a.discount_label) || 0;
+                const discB = parseInt(b.discount_label) || 0;
+                return discB - discA;
+            })
             .slice(0, 10);
     });
 
@@ -103,15 +108,16 @@
         return url;
     };
 
-    // --- REVISI: HAPUS OPTIMASI KOMPRESI CLOUDINARY (Sesuai Permintaan) ---
-    const optimizeUrl = (url) => {
-        return url; // Kembalikan URL asli agar cepat tanpa proses server
-    };
+    const optimizeUrl = (url) => url; 
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v9'; // Update versi cache
+        const CACHE_KEY = 'home_data_v10'; // [UPDATE] Ganti versi cache biar refresh
         const cached = sessionStorage.getItem(CACHE_KEY);
+        
+        // Hapus cache lama jika versi beda (opsional, tapi bagus buat dev)
+        // sessionStorage.removeItem('home_data_v9');
+
         if (cached) {
             try {
                 const data = JSON.parse(cached);
@@ -121,9 +127,10 @@
             } catch (e) { console.error("Cache Error", e); }
         }
 
+        // Selalu fetch data baru (Stale-While-Revalidate)
         fetchBannerData();
         fetchProductData();
-        fetchBranches(); // Fetch daftar cabang untuk modal
+        fetchBranches();
     });
 
     async function fetchBranches() {
@@ -154,11 +161,12 @@
 
     async function fetchProductData() {
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/`);
+            // Tambahkan timestamp agar tidak dicache browser/server
+            const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`);
             if (res.ok) {
                 let raw = await res.json();
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
-                products = raw; // Simpan apa adanya tanpa proses map url
+                products = raw; 
                 updateCache();
             } else {
                 errorMsg = "Gagal memuat produk.";
@@ -169,7 +177,7 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v9', JSON.stringify({ 
+            sessionStorage.setItem('home_data_v10', JSON.stringify({ 
                 banners, 
                 products,
                 branches 
@@ -197,18 +205,19 @@
         
         const sku = selectedProduct.sku || '-';
         const cleanPhone = branchPhone.replace(/\D/g, '');
-        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${selectedProduct.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(selectedProduct.price)}\n\nApakah stok masih tersedia di cabang ini?`;
+        // [UPDATE] Kirim harga final ke WA
+        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${selectedProduct.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(selectedProduct.final_price)}\n\nApakah stok masih tersedia di cabang ini?`;
         
         const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
         window.open(url, '_blank');
-        showBranchModal = false; // Tutup modal setelah klik
+        showBranchModal = false; 
     }
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-    function formatRupiah(angka) { return rupiahFormatter.format(angka); }
-    function hitungDiskon(hargaAsli, hargaCoret) {
-        if (!hargaCoret || hargaCoret <= hargaAsli) return 0;
-        return Math.round(((hargaCoret - hargaAsli) / hargaCoret) * 100);
+    
+    // [UPDATE] Helper aman jika data null
+    function formatRupiah(angka) { 
+        return rupiahFormatter.format(angka || 0); 
     }
 </script>
 
@@ -305,7 +314,12 @@
                                             class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
                                         />
                                     </a>
-                                    {#if badgeText}
+                                    
+                                    {#if item.discount_label}
+                                        <span class="absolute top-2 left-0 bg-red-600 text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-r-full z-10">
+                                            {item.discount_label}
+                                        </span>
+                                    {:else if badgeText}
                                         <span class="absolute top-2 left-0 {badgeColor} text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-r-full z-10">{badgeText}</span>
                                     {/if}
                                 </div>
@@ -314,9 +328,10 @@
                                         <a href="/produk/{item.slug}">{item.name}</a>
                                     </h3>
                                     <div class="flex flex-col h-9 justify-center mb-2">
-                                        <span class="text-sm font-black text-gray-900">{formatRupiah(item.price)}</span>
-                                        {#if item.strike_price > item.price}
-                                            <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.strike_price)}</span>
+                                        <span class="text-sm font-black text-gray-900">{formatRupiah(item.final_price)}</span>
+                                        
+                                        {#if item.display_strike_price > item.final_price}
+                                            <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.display_strike_price)}</span>
                                         {/if}
                                     </div>
                                     <button onclick={() => buyNow(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
