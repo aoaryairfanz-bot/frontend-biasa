@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
-    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon } from 'svelte-feather-icons'; 
+    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon, ChevronRightIcon, TagIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
     import kategoriImg from '$lib/assets/kategori.png';
 
@@ -13,7 +13,7 @@
     // --- STATE CABANG & MODAL BELI ---
     let branches = $state([]); 
     let showBranchModal = $state(false);
-    let selectedProduct = $state(null); // Produk yang sedang ingin dibeli
+    let selectedProduct = $state(null);
     let isLoadingBranches = $state(false);
 
     // State Loading & Error
@@ -26,108 +26,61 @@
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // FILTER SUBCATEGORY (Hanya tampilkan jika bukan BUKU/ALKITAB)
+    // FILTER KATEGORI (Clean List)
     const subcategories = $derived.by(() => {
         const unique = new Set();
         if (products.length > 0) {
             for (const s of products) {
-                const isBook = s.category === 'book' || 
-                               (s.name && (s.name.toLowerCase().includes('alkitab') || s.name.toLowerCase().includes('buku')));
-
-                if (!isBook) {
-                    const cat = s.subcategory || s.category;
-                    if (cat && cat !== 'nonbook') { 
-                        const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
-                        unique.add(formatted);
-                    }
+                // Kecualikan buku jika ingin fokus merchandise, atau atur sesuai selera
+                const cat = s.subcategory || s.category;
+                if (cat && cat !== 'nonbook') { 
+                    const formatted = cat.trim().charAt(0).toUpperCase() + cat.trim().slice(1).toLowerCase();
+                    unique.add(formatted);
                 }
             }
         }
         return Array.from(unique).sort();
     });
 
-    const latestProducts = $derived(products.slice(0, 10));
+    const latestProducts = $derived(products.slice(0, 12));
 
     const bestSellers = $derived.by(() => {
         if (products.length === 0) return [];
-        const sellers = [];
-        const processedSubs = new Set();
-        // Urutkan berdasarkan harga tertinggi sebagai simulasi bestseller
-        const sorted = [...products].sort((a, b) => b.final_price - a.final_price);
-        for (const p of sorted) {
-            const sub = p.subcategory || p.category || "Lainnya";
-            if (!processedSubs.has(sub)) {
-                sellers.push(p);
-                processedSubs.add(sub);
-            }
-            if (sellers.length >= 10) break;
-        }
-        return sellers;
+        // Simulasi bestseller (sort by stock terendah atau logic lain)
+        return [...products].sort(() => 0.5 - Math.random()).slice(0, 12);
     });
 
-    // [UPDATE] PROMO: Filter berdasarkan discount_label dari backend
+    // FILTER PROMO (Menggunakan Data Backend: discount_label / strike_price)
     const bestPromos = $derived.by(() => {
         if (products.length === 0) return [];
         return products
             .filter(p => p.discount_label || (p.display_strike_price > p.final_price))
-            // Sortir diskon terbesar (jika label ada %)
             .sort((a, b) => {
+                // Prioritaskan yang punya label diskon tertinggi
                 const discA = parseInt(a.discount_label) || 0;
                 const discB = parseInt(b.discount_label) || 0;
                 return discB - discA;
             })
-            .slice(0, 10);
+            .slice(0, 12);
     });
 
-    // --- ICON MAP ---
-    const ICON_MAP = {
-        'lilin': 'https://cdn-icons-png.flaticon.com/512/10632/10632653.png',
-        'rosario': 'https://cdn-icons-png.flaticon.com/512/3552/3552047.png',
-        'salib': 'https://cdn-icons-png.flaticon.com/512/18635/18635997.png',
-        'patung': 'https://cdn-icons-png.flaticon.com/512/15119/15119407.png',
-        'alkitab': 'https://cdn-icons-png.flaticon.com/512/2142/2142712.png',
-        'gelang': 'https://cdn-icons-png.flaticon.com/512/3985/3985817.png',
-        'natal': 'https://cdn-icons-png.flaticon.com/512/6279/6279334.png',
-        'buku': 'https://cdn-icons-png.flaticon.com/512/2232/2232688.png',
-        'kalung': 'https://cdn-icons-png.flaticon.com/512/10437/10437198.png',
-        'anggur': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',   
-        'hosti': 'https://cdn-icons-png.flaticon.com/512/10472/10472751.png',    
-        'pernak': 'https://cdn-icons-png.flaticon.com/512/10359/10359496.png',   
-        'hiasan': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',   
-        'dinding': 'https://cdn-icons-png.flaticon.com/512/10217/10217777.png',       
-        'liontin': 'https://cdn-icons-png.flaticon.com/512/3072/3072825.png' 
-    };
-
-    const getSubIcon = (name) => {
-        if (!name) return kategoriImg;
-        const key = Object.keys(ICON_MAP).find(k => name.toLowerCase().includes(k));
-        const url = key ? ICON_MAP[key] : kategoriImg;
-        if (typeof url === 'string' && url.includes('/512/')) {
-            return url.replace('/512/', '/128/');
-        }
-        return url;
-    };
-
-    const optimizeUrl = (url) => url; 
+    // --- ICON MAP (Opsional) ---
+    const getSubIcon = (name) => kategoriImg; // Placeholder icon kategori
 
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v10'; // [UPDATE] Ganti versi cache biar refresh
+        const CACHE_KEY = 'home_data_v11'; // Update versi cache
         const cached = sessionStorage.getItem(CACHE_KEY);
         
-        // Hapus cache lama jika versi beda (opsional, tapi bagus buat dev)
-        // sessionStorage.removeItem('home_data_v9');
-
         if (cached) {
             try {
                 const data = JSON.parse(cached);
                 if (data.banners) { banners = data.banners; loadingBanner = false; }
                 if (data.products) { products = data.products; loadingProducts = false; }
                 if (data.branches) { branches = data.branches; }
-            } catch (e) { console.error("Cache Error", e); }
+            } catch (e) { console.error(e); }
         }
 
-        // Selalu fetch data baru (Stale-While-Revalidate)
         fetchBannerData();
         fetchProductData();
         fetchBranches();
@@ -161,27 +114,20 @@
 
     async function fetchProductData() {
         try {
-            // Tambahkan timestamp agar tidak dicache browser/server
             const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`);
             if (res.ok) {
                 let raw = await res.json();
                 if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
                 products = raw; 
                 updateCache();
-            } else {
-                errorMsg = "Gagal memuat produk.";
-            }
+            } else { errorMsg = "Gagal memuat produk."; }
         } catch (e) { errorMsg = "Kesalahan jaringan."; }
         finally { loadingProducts = false; }
     }
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v10', JSON.stringify({ 
-                banners, 
-                products,
-                branches 
-            }));
+            sessionStorage.setItem('home_data_v11', JSON.stringify({ banners, products, branches }));
         }
     }
 
@@ -194,7 +140,7 @@
         });
     }
 
-    // --- LOGIKA BELI (Pilih Cabang) ---
+    // --- ACTIONS ---
     function buyNow(product) {
         selectedProduct = product;
         showBranchModal = true;
@@ -202,43 +148,50 @@
 
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
+        const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
+        const urlProduk = `${window.location.origin}/produk/${selectedProduct.slug}`;
         
-        const sku = selectedProduct.sku || '-';
-        const cleanPhone = branchPhone.replace(/\D/g, '');
-        // [UPDATE] Kirim harga final ke WA
-        const text = `Hallo Admin Narwastu\nSaya tertarik dengan produk ini:\n\n*${selectedProduct.name}*\nSKU: ${sku}\nHarga: ${formatRupiah(selectedProduct.final_price)}\n\nApakah stok masih tersedia di cabang ini?`;
-        
-        const url = `https://wa.me/${cleanPhone}?text=${encodeURIComponent(text)}`;
-        window.open(url, '_blank');
+        const pesan = 
+            `*${selectedProduct.name}*\n` +
+            `Harga: ${formatRupiah(selectedProduct.final_price)}\n` + 
+            `Link: ${urlProduk}\n\n` + 
+            `Hallo Admin, apakah stok produk ini masih tersedia di cabang kakak?`;
+            
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; 
     }
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-    
-    // [UPDATE] Helper aman jika data null
-    function formatRupiah(angka) { 
-        return rupiahFormatter.format(angka || 0); 
-    }
+    function formatRupiah(angka) { return rupiahFormatter.format(angka || 0); }
+    function optimizeUrl(url) { return url; } // Bypass Cloudinary transform agar cepat
 </script>
 
 <svelte:head>
     <title>Narwastu - Toko Kristiani</title>
-    <meta name="description" content="Toko Rohani Narwastu menjual perengkapan ibadah." />
+    <meta name="description" content="Toko Rohani Narwastu menjual perlengkapan ibadah." />
 </svelte:head>
 
-<div class="min-h-screen bg-white font-sans relative pb-20">
+<style>
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
+</style>
+
+<div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mb-8 mt-4" aria-label="Promo Utama">
-        <div class="container mx-auto px-4">
+    <section class="w-full mt-4 mb-10" aria-label="Promo Utama">
+        <div class="container mx-auto px-4 max-w-[1200px]">
             {#if loadingBanner && displayBanners.length === 0}
-                <div class="relative w-full aspect-[2.5/1] rounded-2xl bg-gray-200 animate-pulse mx-auto max-w-[1200px]"></div>
+                <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-2xl bg-gray-100 animate-pulse"></div>
             {:else if displayBanners.length > 0}
-                <div class="relative w-full aspect-[2.5/1] rounded-2xl overflow-hidden shadow-sm bg-gray-100 mx-auto max-w-[1200px]">
+                <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-2xl overflow-hidden shadow-sm bg-gray-50 group">
                     {#each displayBanners as banner, i}
                         {#if i === currentIndex}
                             <div 
-                                in:fly={{ x: 100, duration: 600, opacity: 0 }} 
-                                out:fly={{ x: -100, duration: 600, opacity: 0 }} 
+                                in:fade={{ duration: 800 }} 
+                                out:fade={{ duration: 800 }} 
                                 class="absolute inset-0 w-full h-full"
                             >
                                 <img 
@@ -250,9 +203,9 @@
                             </div>
                         {/if}
                     {/each}
-                    <div class="absolute bottom-3 left-1/2 -translate-x-1/2 flex space-x-1.5 z-10">
+                    <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
                         {#each displayBanners as _, i}
-                            <div class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-5' : 'bg-white/60 w-1.5'}"></div>
+                            <button onclick={() => currentIndex = i} class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-1.5'}"></button>
                         {/each}
                     </div>
                 </div>
@@ -260,23 +213,21 @@
         </div>
     </section>
 
-    <nav class="w-full mb-8" aria-label="Kategori">
+    <nav class="w-full mb-12" aria-label="Kategori">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="flex gap-4 overflow-x-auto pb-4 px-1 snap-x scrollbar-hide justify-start md:justify-center">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Kategori Pilihan</h3>
+            </div>
+            <div class="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
                 {#if loadingProducts && subcategories.length === 0}
-                    {#each Array(5) as _}
-                        <div class="flex-shrink-0 flex flex-col items-center gap-2 w-[70px]">
-                            <div class="w-14 h-14 rounded-full bg-gray-100 animate-pulse"></div>
-                            <div class="h-2 w-10 bg-gray-100 rounded animate-pulse"></div>
-                        </div>
-                    {/each}
+                    {#each Array(6) as _}<div class="w-24 h-10 bg-gray-100 rounded-full animate-pulse shrink-0"></div>{/each}
                 {:else}
+                    <a href="/katalog" class="px-5 py-2.5 rounded-full bg-gray-900 text-white text-xs font-bold whitespace-nowrap shrink-0 hover:bg-[#C4161C] transition-colors shadow-sm snap-start">
+                        Semua Produk
+                    </a>
                     {#each subcategories as sub}
-                        <a href="/katalog?search={sub}" class="flex-shrink-0 flex flex-col items-center gap-2 w-[70px] md:w-20 cursor-pointer group snap-start">
-                            <div class="w-14 h-14 md:w-16 md:h-16 rounded-full bg-white shadow-sm border border-gray-100 flex items-center justify-center overflow-hidden group-hover:border-yellow-400 transition-colors">
-                                <img src={getSubIcon(sub)} alt={sub} class="w-7 h-7 md:w-9 md:h-9 object-contain opacity-90" loading="lazy" width="36" height="36"/>
-                            </div>
-                            <span class="text-[9px] md:text-[10px] font-bold text-gray-500 text-center leading-tight line-clamp-2 w-full uppercase tracking-tighter">{sub}</span>
+                        <a href="/katalog?search={sub}" class="px-5 py-2.5 rounded-full bg-gray-50 border border-gray-100 text-gray-600 text-xs font-semibold whitespace-nowrap shrink-0 hover:border-[#C4161C] hover:text-[#C4161C] hover:bg-white transition-all snap-start">
+                            {sub}
                         </a>
                     {/each}
                 {/if}
@@ -284,149 +235,167 @@
         </div>
     </nav>
 
-    {#snippet productRow(title, rowProducts, badgeText, badgeColor, link)}
-        <section class="mb-10" aria-label={title}>
-            <div class="container mx-auto px-4 max-w-[1200px]">
-                <div class="flex items-center justify-between mb-4 border-b border-gray-100 pb-2">
-                    <h2 class="text-lg md:text-xl font-extrabold text-gray-800">{title}</h2>
-                    <a href={link} class="text-xs font-bold text-yellow-600 hover:text-yellow-700">Lihat Semua</a>
+    {#snippet productCard(item)}
+        <div class="group relative flex flex-col h-full">
+            <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
+                <a href="/produk/{item.slug}" class="block w-full h-full">
+                    <img 
+                        src={optimizeUrl(item.image_1_url)} 
+                        alt={item.name} 
+                        loading="lazy" decoding="async" 
+                        class="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" 
+                    />
+                </a>
+                
+                {#if item.discount_label}
+                    <span class="absolute top-0 left-0 bg-[#C4161C] text-white text-[10px] font-bold px-2 py-1 rounded-br-lg shadow-sm z-10">
+                        {item.discount_label}
+                    </span>
+                {/if}
+            </div>
+
+            <div class="flex flex-col flex-grow">
+                <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">
+                    {item.subcategory || item.category || 'Umum'}
                 </div>
-                <div class="flex gap-3 md:gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide">
-                    {#if loadingProducts && rowProducts.length === 0}
-                        {#each Array(4) as _}
-                            <div class="snap-start flex-shrink-0 w-[150px] md:w-[190px] flex flex-col bg-white">
-                                <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse mb-2"></div>
-                                <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse mb-2"></div>
-                                <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
-                            </div>
-                        {/each}
-                    {:else if rowProducts.length === 0 && !loadingProducts}
-                        <div class="w-full text-center text-xs text-gray-400 py-4 italic">Belum ada produk</div>
-                    {:else}
-                        {#each rowProducts as item (item.id)}
-                            <article class="snap-start flex-shrink-0 w-[150px] md:w-[190px] flex flex-col group bg-white">
-                                <div class="relative w-full aspect-[3/4] mb-2 overflow-hidden rounded-xl bg-gray-50 border-none shadow-sm">
-                                    <a href="/produk/{item.slug}">
-                                        <img 
-                                            src={optimizeUrl(item.image_1_url)} 
-                                            alt={item.name} 
-                                            loading="lazy" decoding="async" width="150" height="200"
-                                            class="w-full h-full object-contain p-2 hover:scale-105 transition-transform duration-300" 
-                                        />
-                                    </a>
-                                    
-                                    {#if item.discount_label}
-                                        <span class="absolute top-2 left-0 bg-red-600 text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-r-full z-10">
-                                            {item.discount_label}
-                                        </span>
-                                    {:else if badgeText}
-                                        <span class="absolute top-2 left-0 {badgeColor} text-white text-[8px] md:text-[9px] font-black px-2 py-0.5 rounded-r-full z-10">{badgeText}</span>
-                                    {/if}
-                                </div>
-                                <div class="flex flex-col px-1 flex-grow">
-                                    <h3 class="text-xs font-bold text-gray-800 h-8 line-clamp-2 leading-tight mb-1 lowercase">
-                                        <a href="/produk/{item.slug}">{item.name}</a>
-                                    </h3>
-                                    <div class="flex flex-col h-9 justify-center mb-2">
-                                        <span class="text-sm font-black text-gray-900">{formatRupiah(item.final_price)}</span>
-                                        
-                                        {#if item.display_strike_price > item.final_price}
-                                            <span class="text-[9px] text-gray-400 line-through">{formatRupiah(item.display_strike_price)}</span>
-                                        {/if}
-                                    </div>
-                                    <button onclick={() => buyNow(item)} class="mt-auto w-full bg-gray-900 hover:bg-[#C4161C] text-white text-[10px] font-bold py-2 rounded-lg active:scale-95 uppercase tracking-tighter">
-                                        Beli
-                                    </button>
-                                </div>
-                            </article>
-                        {/each}
-                    {/if}
+
+                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]">
+                    <a href="/produk/{item.slug}">{item.name}</a>
+                </h3>
+
+                <div class="mt-auto pt-2">
+                    <div class="flex flex-col items-start">
+                        {#if item.display_strike_price > item.final_price}
+                            <span class="text-[10px] text-gray-400 line-through decoration-gray-300 mb-0.5">
+                                {formatRupiah(item.display_strike_price)}
+                            </span>
+                        {/if}
+                        <span class="text-base font-black text-[#C4161C]">
+                            {formatRupiah(item.final_price)}
+                        </span>
+                    </div>
                 </div>
             </div>
-        </section>
+        </div>
     {/snippet}
 
-    {#if errorMsg}
-        <div class="text-center text-red-500 py-10 flex flex-col items-center">
-            <AlertCircleIcon />
-            <p class="mt-2 text-sm">{errorMsg}</p>
-            <button onclick={() => window.location.reload()} class="mt-4 px-4 py-2 bg-gray-100 rounded-lg text-xs font-bold flex items-center gap-2"><RefreshCwIcon size="14"/> Refresh Halaman</button>
+    {#if bestPromos.length > 0}
+    <section class="mb-16 bg-red-50/50 py-10" aria-label="Promo">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <TagIcon size="20" class="text-[#C4161C]"/>
+                    <h2 class="text-xl font-extrabold text-gray-900">Lagi Promo Nih!</h2>
+                </div>
+                <a href="/katalog?sort=promo" class="text-xs font-bold text-[#C4161C] hover:underline flex items-center gap-1">
+                    Lihat Semua <ChevronRightIcon size="14"/>
+                </a>
+            </div>
+            
+            <div class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+                {#each bestPromos as item}
+                    <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">
+                        {@render productCard(item)}
+                    </div>
+                {/each}
+            </div>
         </div>
-    {:else}
-        {@render productRow("Produk Terbaru", latestProducts, "New", "bg-[#C4161C]", "/katalog?sort=newest")}
-        {@render productRow("Best Seller", bestSellers, "Hot", "bg-yellow-500", "/katalog?sort=bestseller")}
-        {@render productRow("Promo Spesial", bestPromos, null, "", "/katalog?sort=promo")}
+    </section>
     {/if}
 
+    <section class="mb-16" aria-label="Terbaru">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Koleksi Terbaru</h2>
+                <a href="/katalog?sort=newest" class="text-xs font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1">
+                    Lihat Semua <ChevronRightIcon size="14"/>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                {#if loadingProducts && products.length === 0}
+                    {#each Array(6) as _}
+                        <div class="flex flex-col gap-2">
+                            <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
+                            <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
+                            <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
+                        </div>
+                    {/each}
+                {:else}
+                    {#each latestProducts as item}
+                        {@render productCard(item)}
+                    {/each}
+                {/if}
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-16" aria-label="Best Seller">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Paling Dicari</h2>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                {#each bestSellers as item}
+                    {@render productCard(item)}
+                {/each}
+            </div>
+        </div>
+    </section>
+
     {#if showBranchModal}
-    <div class="fixed inset-0 z-[60] flex items-end md:items-center justify-center p-0 md:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div class="bg-white w-full md:max-w-md rounded-t-3xl md:rounded-3xl shadow-2xl overflow-hidden animate-in slide-in-from-bottom duration-300 flex flex-col max-h-[85vh]">
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
             
-            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0 bg-white">
+            <div class="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
                 <div>
-                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi</h3>
-                    <p class="text-xs text-gray-500">Pilih cabang terdekat untuk pemesanan</p>
+                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi Cabang</h3>
+                    <p class="text-xs text-gray-500">Hubungi cabang terdekat via WhatsApp</p>
                 </div>
                 <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition">
                     <XIcon size="20"/>
                 </button>
             </div>
             
-            <div class="p-4 overflow-y-auto custom-scrollbar flex-1 bg-white">
+            <div class="p-6 bg-white overflow-y-auto custom-scrollbar flex-1">
                 {#if isLoadingBranches}
-                    <div class="text-center py-10 text-gray-400 text-sm animate-pulse">Sedang memuat data cabang...</div>
+                    <div class="text-center py-10 text-gray-400 animate-pulse text-sm">Memuat data...</div>
                 {:else if branches.length === 0}
                     <div class="text-center py-10 text-gray-400 text-sm">Belum ada data cabang.</div>
                 {:else}
-                    <div class="space-y-2">
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {#each branches as branch}
                             <button onclick={() => chatBranch(branch.whatsapp)} 
-                                class="w-full flex items-center justify-between p-3 rounded-xl border border-gray-100 hover:border-[#C4161C]/30 hover:bg-red-50/50 transition-all group text-left active:scale-[0.99]">
+                                class="border border-gray-100 rounded-xl p-4 hover:border-[#C4161C] hover:bg-red-50/20 transition-all text-left group h-full flex flex-col justify-between shadow-sm hover:shadow-md active:scale-[0.98]">
                                 
-                                <div class="flex items-center gap-3 overflow-hidden">
-                                    <div class="w-8 h-8 rounded-full bg-gray-50 text-gray-400 flex items-center justify-center shrink-0 group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
-                                        <MapPinIcon size="14"/>
+                                <div>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                        {#if branch.id === 1} PUSAT {:else} CABANG {/if}
                                     </div>
-                                    <div class="flex flex-col min-w-0">
-                                        <div class="flex items-center gap-2">
-                                            <span class="text-[10px] font-bold text-gray-400 uppercase tracking-wider group-hover:text-[#C4161C] transition-colors">
-                                                {#if branch.id === 1} PUSAT {:else} CABANG {/if}
-                                            </span>
-                                        </div>
-                                        <h4 class="font-bold text-gray-800 text-xs md:text-sm truncate pr-2 group-hover:text-[#C4161C] transition-colors">
-                                            {branch.name.replace('Narwastu ', '')}
-                                        </h4>
-                                    </div>
+                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm leading-snug mb-3 group-hover:text-[#C4161C] transition-colors">
+                                        {branch.name.replace('Narwastu ', '')}
+                                    </h4>
                                 </div>
 
-                                <div class="shrink-0 pl-2">
-                                    <div class="flex items-center gap-1.5 text-[#C4161C] bg-red-50 px-3 py-1.5 rounded-full text-[10px] font-bold group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
-                                        <span>Chat</span>
-                                        <MessageCircleIcon size="12"/>
-                                    </div>
+                                <div class="flex items-center gap-1.5 text-[#C4161C] text-[10px] font-bold mt-auto bg-white border border-[#C4161C]/20 px-2 py-1.5 rounded-lg w-fit group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                    <MessageCircleIcon size="12"/>
+                                    <span>Chat WA</span>
                                 </div>
                             </button>
                         {/each}
                     </div>
                 {/if}
             </div>
-
-            <div class="bg-gray-50 p-3 text-center border-t border-gray-100 shrink-0">
-                <p class="text-[10px] text-gray-500">
-                    <span class="font-bold text-[#C4161C]">Info:</span> Luar P. Jawa dikenakan biaya ongkir.
-                </p>
-            </div>
         </div>
     </div>
     {/if}
 
-</div>
+    {#if errorMsg}
+        <div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl z-50 text-sm font-bold flex items-center gap-3">
+            <AlertCircleIcon size="18" />
+            <span>{errorMsg}</span>
+            <button onclick={() => window.location.reload()}><RefreshCwIcon size="16"/></button>
+        </div>
+    {/if}
 
-<style>
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    /* Custom Scrollbar Modal */
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
-</style>
+</div>
