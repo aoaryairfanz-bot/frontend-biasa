@@ -1,7 +1,7 @@
 <script>
     import { page } from '$app/stores';
     import { PUBLIC_API_URL } from '$env/static/public';
-    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, BoxIcon } from 'svelte-feather-icons';
+    import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon, BoxIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
     // AMBIL DATA
@@ -17,6 +17,11 @@
     let branches = $state([]); 
     let showBranchModal = $state(false); 
     let isLoadingBranches = $state(false);
+
+    let centralBranch = $state({
+        name: "Narwastu Store Yogyakarta",
+        address: "Jl. Beo No.40, Demangan Baru, Caturtunggal, Kec. Depok, Kabupaten Sleman, Daerah Istimewa Yogyakarta 55281"
+    });
 
     let activeIndex = $state(0); 
     let sliderRef; 
@@ -42,7 +47,10 @@
             const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
             if (res.ok) {
                 const raw = await res.json();
-                branches = Array.isArray(raw) ? raw : (raw.data || []);
+                let list = Array.isArray(raw) ? raw : (raw.data || []);
+                branches = list; 
+                const pusat = list.find(b => b.id === 1);
+                if (pusat) centralBranch = pusat; 
             }
         } catch (error) { console.error("Gagal load cabang:", error); }
         finally { isLoadingBranches = false; }
@@ -77,17 +85,19 @@
 
     function openBuyModal() { showBranchModal = true; }
 
+    // [UPDATE PENTING] Hapus URL Gambar di Text Body agar Preview Card WA Muncul
     function chatBranch(branchPhone) {
         if (!branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
-        const imgUrl = product.image_1_url || '';
+        
+        // Cukup kirim Link Produk. WhatsApp akan otomatis ambil og:image sebagai preview card.
         const pesan = 
             `*${product.name}*\n` +
             `Harga: ${formatRupiah(product.final_price)}\n` + 
-            `Link: ${urlProduk}\n` + 
-            (imgUrl ? `Gambar: ${imgUrl}\n\n` : `\n`) +
+            `Link: ${urlProduk}\n\n` + 
             `Hallo Admin, apakah stok produk ini masih tersedia?`;
+            
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; 
     }
@@ -111,13 +121,21 @@
     
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
-        if (p || l || t) return `${p}x${l}x${t} cm`;
+        if (p || l || t) return `${p}x${l}x${t}`; // Disingkat agar muat di mobile
         return "-";
     }
 </script>
 
 <svelte:head>
     <title>{product ? product.name : 'Narwastu Store'}</title>
+    <meta property="og:type" content="product" />
+    <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
+    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.final_price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:url" content={$page.url.href} />
+    <meta property="og:image" content={product ? product.image_1_url : ''} />
+    <meta property="og:image:width" content="600" />
+    <meta property="og:image:height" content="600" />
+
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
@@ -176,8 +194,8 @@
                         {#each mediaList as item, i}
                             <button 
                                 onclick={() => scrollTo(i)} 
-                                class="relative w-16 h-16 cursor-pointer transition flex-shrink-0 rounded-lg overflow-hidden border
-                                {activeIndex === i ? 'border-[#C4161C] opacity-100' : 'border-transparent opacity-50 hover:opacity-100'}"
+                                class="relative w-16 h-16 cursor-pointer transition flex-shrink-0 rounded-lg overflow-hidden
+                                {activeIndex === i ? 'opacity-100 border-2 border-[#C4161C]' : 'opacity-40 hover:opacity-100 border border-transparent'}"
                             >
                                 {#if isVideo(item)} <video src={item} class="w-full h-full object-cover" muted></video>
                                 {:else} <img src={optimizeCloudinary(item)} alt="Thumb" class="w-full h-full object-cover" /> {/if}
@@ -209,7 +227,7 @@
                         </div>
                     </div>
 
-                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4 text-sm text-gray-600 mb-8 border-b border-gray-100 pb-6">
+                    <div class="grid grid-cols-4 gap-2 text-sm text-gray-600 mb-8 border-b border-gray-100 pb-6">
                         {#if product.sku}
                             <div class="flex flex-col">
                                 <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">SKU</span>
@@ -218,15 +236,15 @@
                         {/if}
                         <div class="flex flex-col">
                             <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Berat</span>
-                            <span class="font-bold text-gray-900">{product.weight ? product.weight + 'g' : '-'}</span>
+                            <span class="font-bold text-gray-900 truncate">{product.weight ? product.weight + 'g' : '-'}</span>
                         </div>
                         <div class="flex flex-col">
                             <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Stok</span>
-                            <span class="font-bold text-gray-900">{product.stock || "-"}</span>
+                            <span class="font-bold text-gray-900 truncate">{product.stock || "-"}</span>
                         </div>
                         <div class="flex flex-col">
                             <span class="text-[10px] text-gray-400 font-bold uppercase tracking-wider mb-1">Dimensi</span>
-                            <span class="font-bold text-gray-900 truncate">{formatDimensi()}</span>
+                            <span class="font-bold text-gray-900 truncate text-xs">{formatDimensi()}</span>
                         </div>
                     </div>
 

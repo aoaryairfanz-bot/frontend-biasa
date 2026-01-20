@@ -231,7 +231,7 @@
                 <input 
                     type="text" 
                     bind:value={formData.name} required 
-                    placeholder="Contoh: Lebaran Sale" 
+                    placeholder="Cth: Diskon Akhir Tahun" 
                     class="w-full px-4 py-3 bg-gray-50 border border-gray-100 rounded-xl focus:ring-2 focus:ring-purple-500 outline-none transition text-sm font-bold text-gray-700" 
                 />
             </div>
