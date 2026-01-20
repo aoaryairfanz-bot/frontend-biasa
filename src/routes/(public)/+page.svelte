@@ -125,7 +125,7 @@
                 products = raw; 
                 updateCache();
             } else { errorMsg = "Gagal memuat produk."; }
-        } catch (e) { errorMsg = "Kesalahan jaringan."; }
+        } catch (e) { errorMsg = "Kesalahan jaringann."; }
         finally { loadingProducts = false; }
     }
 
