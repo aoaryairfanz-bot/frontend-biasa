@@ -272,7 +272,7 @@
 
 <script>
     import { onMount } from 'svelte';
-    import { fade } from 'svelte/transition';
+    import { fade, fly } from 'svelte/transition';
     import { page } from '$app/stores'; 
     import { goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public'; 
@@ -284,34 +284,28 @@
     let products = $state([]); 
     let isLoading = $state(true); 
     
-    // UI State (Default)
+    // UI State
     let filter = $state('all');
     let currentPage = $state(1);
     let searchTerm = $state("");
     const itemsPerPage = 15;
 
-    // --- MAGIS 1: AUTO SYNC URL & STATE (Fix Back Button) ---
-    // $effect akan jalan setiap kali ada perubahan pada dependency (disini $page.url)
+    // --- SYNC URL & STATE ---
     $effect(() => {
         const params = $page.url.searchParams;
-        
-        // 1. Ambil nilai dari URL
         const urlPage = parseInt(params.get('page') || '1');
         const urlCat = params.get('category') || 'all';
         const urlSearch = params.get('search') || '';
 
-        // 2. Update State Lokal secara Otomatis
-        // Ini yang bikin "Auto Refresh Diam-diam" saat tombol Back ditekan
         if (currentPage !== urlPage) currentPage = urlPage;
         if (filter !== urlCat) filter = urlCat;
         if (searchTerm !== urlSearch) searchTerm = urlSearch;
     });
 
-    // --- OPTIMASI 2: Caching & Fetching ---
+    // --- FETCH DATA ---
     onMount(async () => {
         const CACHE_KEY = 'katalog_products_v5'; 
         
-        // Cek Cache
         try {
             const cachedData = sessionStorage.getItem(CACHE_KEY);
             if (cachedData) {
@@ -323,7 +317,6 @@
             }
         } catch (e) { console.error("Cache error", e); }
 
-        // Fetch Data Terbaru (Background)
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`); 
             if (res.ok) {
@@ -346,12 +339,13 @@
         }
     });
 
-    // --- LOGIKA KATEGORI & FILTER ---
+    // --- HELPERS ---
     const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
     const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'novena'];
 
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-    const formatRupiah = (num) => rupiahFormatter.format(num);
+    // [UPDATE] Helper aman untuk format rupiah
+    const formatRupiah = (num) => rupiahFormatter.format(num || 0);
     const optimizeUrl = (url) => url; 
 
     const filterOptions = [
@@ -361,7 +355,7 @@
         { id: 'buku', label: 'Buku' }
     ];
 
-    // --- FILTERING LOGIC ---
+    // --- FILTERING ---
     let allFilteredProducts = $derived.by(() => {
         if (!products || products.length === 0) return [];
 
@@ -397,21 +391,18 @@
         return allFilteredProducts.slice(startIndex, startIndex + itemsPerPage);
     });
 
-    // --- NAVIGATION ACTIONS (Single Source of Truth: URL) ---
+    // --- ACTIONS ---
     function updateUrl(newParams) {
         const url = new URL($page.url);
-        
-        // Update URL params sesuai request
         if (newParams.page) url.searchParams.set('page', newParams.page);
         if (newParams.category) url.searchParams.set('category', newParams.category);
         
-        // Penting: goto akan memicu $effect di atas
-        // keepFocus: true -> agar tidak scroll ke atas otomatis jika tidak diminta
         goto(url.toString(), { keepFocus: true, noScroll: true });
     }
 
     function changeCategory(id) {
-        // Reset ke page 1 saat ganti kategori
+        filter = id;
+        currentPage = 1; 
         updateUrl({ category: id, page: 1 });
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
@@ -424,7 +415,6 @@
     }
 
     function resetFilter() {
-        // Hapus query params search
         const url = new URL($page.url);
         url.searchParams.delete('search');
         url.searchParams.set('category', 'all');
@@ -432,9 +422,10 @@
         goto(url.toString());
     }
 
-    function hitungDiskon(hargaAsli, hargaCoret) {
-        if (!hargaCoret || hargaCoret <= hargaAsli) return 0;
-        return Math.round(((hargaCoret - hargaAsli) / hargaCoret) * 100);
+    // [UPDATE] Hitung diskon menggunakan harga final dan harga coret
+    function hitungDiskon(finalPrice, strikePrice) {
+        if (!strikePrice || strikePrice <= finalPrice) return 0;
+        return Math.round(((strikePrice - finalPrice) / strikePrice) * 100);
     }
 </script>
 
@@ -454,7 +445,7 @@
     
     <div class="container mx-auto px-4 max-w-[1200px] mb-2 bg-white sticky top-0 z-20 py-2 border-b border-gray-50 md:border-none">
         <div class="flex justify-center w-full">
-            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-2 items-center snap-x">
+            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-center px-2 pb-2 items-center snap-x">
                 {#each filterOptions as opt}
                 <button 
                     onclick={() => changeCategory(opt.id)}
@@ -502,7 +493,7 @@
 
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 md:gap-y-10 mb-10" in:fade={{duration: 200}}>
                 {#each visibleProducts as item (item.id || item.name)}
-                    {@const diskon = hitungDiskon(item.price, item.strike_price)}
+                    {@const diskon = hitungDiskon(item.final_price, item.display_strike_price)}
                     
                     <a href="/produk/{item.slug}" class="group relative flex flex-col h-full cursor-pointer hover:-translate-y-1 transition-transform duration-300">
                         <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
@@ -530,10 +521,14 @@
                             </h3>
 
                             <div class="mt-auto">
-                                {#if item.strike_price > item.price}
-                                    <div class="text-[10px] text-gray-400 line-through mb-0.5">{formatRupiah(item.strike_price)}</div>
+                                {#if item.display_strike_price > item.final_price}
+                                    <div class="text-[10px] text-gray-400 line-through mb-0.5">
+                                        {formatRupiah(item.display_strike_price)}
+                                    </div>
                                 {/if}
-                                <div class="text-base font-extrabold text-[#C4161C]">{formatRupiah(item.price)}</div>
+                                <div class="text-base font-extrabold text-[#C4161C]">
+                                    {formatRupiah(item.final_price)}
+                                </div>
                             </div>
                         </div>
                     </a>
@@ -579,16 +574,19 @@
 
         {:else}
             <div class="text-center py-24">
-                <div class="inline-block p-4 rounded-full bg-gray-50 mb-4">
+                <div class="inline-block p-4 rounded-full bg-gray-50 mb-3">
                     <FilterIcon size="32" class="text-gray-300"/>
                 </div>
-                <h3 class="text-lg font-bold text-gray-900 mb-2">Produk tidak ditemukan</h3>
-                <p class="text-sm text-gray-500 max-w-xs mx-auto mb-6">
-                    Coba ubah kata kunci pencarian atau ganti filter kategori Anda.
-                </p>
-                <button onclick={resetFilter} class="px-6 py-2 bg-gray-900 text-white rounded-full text-xs font-bold hover:bg-[#C4161C] transition-colors">
-                    Lihat Semua Produk
-                </button>
+                <h3 class="text-sm font-bold text-gray-500 mb-2">
+                    {#if isLoading}
+                        Memuat produk...
+                    {:else}
+                        Tidak ada produk ditemukan
+                    {/if}
+                </h3>
+                {#if searchTerm}
+                    <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Lihat Semua Produk</button>
+                {/if}
             </div>
         {/if}
     </div>
