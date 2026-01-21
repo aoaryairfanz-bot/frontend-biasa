@@ -329,8 +329,17 @@
     {#if showBranchModal}
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
         <div class="bg-white w-full max-w-5xl rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+            <!-- <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
                 <h3 class="text-lg font-bold text-gray-900">Pilih Lokasi</h3>
+                <button onclick={() => showBranchModal = false} class="text-gray-400 hover:text-red-500 transition">
+                    <XIcon size="24"/>
+                </button>
+            </div> -->
+            <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
+                <div>
+                    <h3 class="text-lg font-bold text-gray-900">Pilih Lokasi</h3>
+                    <p class="text-xs text-red-500 font-medium mt-1">*Harga Belum Termasuk Ongkir, Hubungi Admin Untuk Info Lebih Lanjut</p>
+                </div>
                 <button onclick={() => showBranchModal = false} class="text-gray-400 hover:text-red-500 transition">
                     <XIcon size="24"/>
                 </button>
