@@ -272,11 +272,11 @@
 
 <script>
     import { onMount } from 'svelte';
-    import { fade, fly } from 'svelte/transition';
+    import { fade } from 'svelte/transition';
     import { page } from '$app/stores'; 
-    import { goto } from '$app/navigation'; // Wajib untuk update URL
+    import { goto } from '$app/navigation';
     import { PUBLIC_API_URL } from '$env/static/public'; 
-    import { LoaderIcon, FilterIcon, AlertCircleIcon, ChevronLeftIcon, ChevronRightIcon } from 'svelte-feather-icons';
+    import { LoaderIcon, FilterIcon, AlertCircleIcon, ChevronLeftIcon, ChevronRightIcon, XIcon } from 'svelte-feather-icons';
 
     let { data } = $props();
 
@@ -284,23 +284,34 @@
     let products = $state([]); 
     let isLoading = $state(true); 
     
-    // UI State (Diinisialisasi dari URL nanti)
+    // UI State (Default)
     let filter = $state('all');
     let currentPage = $state(1);
+    let searchTerm = $state("");
     const itemsPerPage = 15;
-    
-    // --- OPTIMASI 1: Caching & Fetching (Robust) ---
-    onMount(async () => {
-        // 1. Baca State dari URL saat Load (PENTING untuk Back Button)
-        const urlPage = parseInt($page.url.searchParams.get('page') || '1');
-        const urlCat = $page.url.searchParams.get('category') || 'all';
-        
-        currentPage = urlPage;
-        filter = urlCat;
 
-        const CACHE_KEY = 'katalog_products_v4'; 
+    // --- MAGIS 1: AUTO SYNC URL & STATE (Fix Back Button) ---
+    // $effect akan jalan setiap kali ada perubahan pada dependency (disini $page.url)
+    $effect(() => {
+        const params = $page.url.searchParams;
         
-        // 2. Cek Cache
+        // 1. Ambil nilai dari URL
+        const urlPage = parseInt(params.get('page') || '1');
+        const urlCat = params.get('category') || 'all';
+        const urlSearch = params.get('search') || '';
+
+        // 2. Update State Lokal secara Otomatis
+        // Ini yang bikin "Auto Refresh Diam-diam" saat tombol Back ditekan
+        if (currentPage !== urlPage) currentPage = urlPage;
+        if (filter !== urlCat) filter = urlCat;
+        if (searchTerm !== urlSearch) searchTerm = urlSearch;
+    });
+
+    // --- OPTIMASI 2: Caching & Fetching ---
+    onMount(async () => {
+        const CACHE_KEY = 'katalog_products_v5'; 
+        
+        // Cek Cache
         try {
             const cachedData = sessionStorage.getItem(CACHE_KEY);
             if (cachedData) {
@@ -312,17 +323,16 @@
             }
         } catch (e) { console.error("Cache error", e); }
 
-        // 3. Fetch Data Terbaru
+        // Fetch Data Terbaru (Background)
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`); 
             if (res.ok) {
                 const result = await res.json();
                 let finalData = [];
                 
-                // Normalisasi Data
                 if (Array.isArray(result)) finalData = result;
-                else if (result.products && Array.isArray(result.products)) finalData = result.products;
-                else if (result.data && Array.isArray(result.data)) finalData = result.data;
+                else if (result.products) finalData = result.products;
+                else if (result.data) finalData = result.data;
 
                 if (finalData.length > 0) {
                     products = finalData;
@@ -345,14 +355,11 @@
     const optimizeUrl = (url) => url; 
 
     const filterOptions = [
-        { id: 'all', label: 'Semua Produk' },
+        { id: 'all', label: 'Semua' },
         { id: 'rohani', label: 'Perlengkapan Rohani' },
         { id: 'alkitab', label: 'Alkitab' },
-        { id: 'buku', label: 'Buku Rohani' }
+        { id: 'buku', label: 'Buku' }
     ];
-
-    // --- SEARCH diambil dari Layout Header (via URL Param 'search') ---
-    let searchTerm = $derived($page.url.searchParams.get('search')?.toLowerCase() || "");
 
     // --- FILTERING LOGIC ---
     let allFilteredProducts = $derived.by(() => {
@@ -360,15 +367,14 @@
 
         let result = products;
 
-        // Filter Search
         if (searchTerm) {
+            const q = searchTerm.toLowerCase();
             result = result.filter(p => 
-                (p.name && p.name.toLowerCase().includes(searchTerm)) || 
-                (p.slug && p.slug.toLowerCase().includes(searchTerm))
+                (p.name && p.name.toLowerCase().includes(q)) || 
+                (p.slug && p.slug.toLowerCase().includes(q))
             );
         }
 
-        // Filter Kategori
         if (filter !== 'all') {
             result = result.filter(item => {
                 const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
@@ -391,33 +397,39 @@
         return allFilteredProducts.slice(startIndex, startIndex + itemsPerPage);
     });
 
-    // --- ACTIONS DENGAN HISTORY PUSH (KUNCI BACK BUTTON) ---
-    function updateUrl() {
-        const url = new URL(window.location);
-        url.searchParams.set('page', currentPage);
-        url.searchParams.set('category', filter);
+    // --- NAVIGATION ACTIONS (Single Source of Truth: URL) ---
+    function updateUrl(newParams) {
+        const url = new URL($page.url);
         
-        // Simpan search term jika ada
-        if (searchTerm) url.searchParams.set('search', searchTerm);
+        // Update URL params sesuai request
+        if (newParams.page) url.searchParams.set('page', newParams.page);
+        if (newParams.category) url.searchParams.set('category', newParams.category);
         
-        // PENTING: Gunakan goto dengan keepFocus agar tidak reload penuh
-        // Browser akan menyimpan ini di history stack
-        goto(url.toString(), { keepFocus: true, noScroll: true, replaceState: false });
+        // Penting: goto akan memicu $effect di atas
+        // keepFocus: true -> agar tidak scroll ke atas otomatis jika tidak diminta
+        goto(url.toString(), { keepFocus: true, noScroll: true });
     }
 
     function changeCategory(id) {
-        filter = id;
-        currentPage = 1; // Reset ke hal 1 jika ganti kategori
-        updateUrl();
+        // Reset ke page 1 saat ganti kategori
+        updateUrl({ category: id, page: 1 });
         window.scrollTo({ top: 0, behavior: 'smooth' }); 
     }
 
     function changePage(newPage) {
         if (newPage >= 1 && newPage <= totalPages) {
-            currentPage = newPage;
-            updateUrl(); // Push state baru ke browser history
+            updateUrl({ page: newPage, category: filter });
             window.scrollTo({ top: 0, behavior: 'instant' }); 
         }
+    }
+
+    function resetFilter() {
+        // Hapus query params search
+        const url = new URL($page.url);
+        url.searchParams.delete('search');
+        url.searchParams.set('category', 'all');
+        url.searchParams.set('page', '1');
+        goto(url.toString());
     }
 
     function hitungDiskon(hargaAsli, hargaCoret) {
@@ -440,16 +452,14 @@
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8" style="font-family: 'Poppins', sans-serif !important;">
     
-    <div class="container mx-auto px-4 max-w-[1200px] mb-2 bg-white sticky top-0 z-20 py-2 border-b border-gray-50 md:border-none md:static">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-2 bg-white sticky top-0 z-20 py-2 border-b border-gray-50 md:border-none">
         <div class="flex justify-center w-full">
-            <div class="flex gap-2 md:gap-3 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-2 items-center snap-x">
+            <div class="flex gap-3 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-2 items-center snap-x">
                 {#each filterOptions as opt}
                 <button 
                     onclick={() => changeCategory(opt.id)}
-                    class="snap-start px-4 py-2 rounded-full text-xs font-bold whitespace-nowrap transition-all border
-                    {filter === opt.id 
-                        ? 'bg-gray-900 text-white border-gray-900 shadow-md' 
-                        : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-900'}"
+                    class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-2 whitespace-nowrap flex-shrink-0 px-2 snap-start
+                    {filter === opt.id ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
                 >
                     {opt.label}
                 </button>
@@ -473,18 +483,20 @@
 
         {:else if visibleProducts.length > 0}
             
-            <div class="flex flex-row justify-between items-center mb-6 gap-2 text-[10px] md:text-xs text-gray-500 border-b border-gray-50 pb-4">
+            <div class="flex flex-row justify-between items-center mb-6 gap-2 text-[10px] md:text-xs text-gray-500 pb-2 border-b border-gray-50">
                 <div class="flex items-center gap-1.5 min-w-0 overflow-hidden">
                     {#if searchTerm}
-                        <span class="whitespace-nowrap flex-shrink-0">Hasil pencarian:</span>
-                        <span class="text-[#C4161C] font-bold not-italic truncate">"{searchTerm}"</span>
-                        <a href="/katalog" class="ml-2 text-gray-400 hover:text-gray-900 font-bold underline flex-shrink-0">Reset</a>
+                        <span class="whitespace-nowrap flex-shrink-0">Pencarian:</span>
+                        <span class="text-[#C4161C] font-bold not-italic truncate max-w-[100px]">"{searchTerm}"</span>
+                        <button onclick={resetFilter} class="ml-2 p-1 bg-gray-100 rounded-full hover:bg-red-100 hover:text-red-500 transition">
+                            <XIcon size="12"/>
+                        </button>
                     {:else}
-                        <span>Menampilkan {allFilteredProducts.length} produk</span>
+                        <span>Total {allFilteredProducts.length} produk</span>
                     {/if}
                 </div>
-                <div class="flex-shrink-0 font-medium bg-gray-100 px-3 py-1 rounded-full">
-                    Hal {currentPage} / {totalPages}
+                <div class="flex-shrink-0 font-medium bg-gray-50 px-3 py-1 rounded-full border border-gray-100">
+                    Hal {currentPage} / {totalPages || 1}
                 </div>
             </div>
 
@@ -538,7 +550,7 @@
                     <ChevronLeftIcon size="18"/>
                 </button>
                 
-                <div class="hidden md:flex items-center gap-1">
+                <div class="flex items-center gap-1">
                     {#each Array(totalPages) as _, i}
                         {@const p = i + 1}
                         {#if p === 1 || p === totalPages || (p >= currentPage - 1 && p <= currentPage + 1)}
@@ -554,8 +566,6 @@
                         {/if}
                     {/each}
                 </div>
-                
-                <span class="md:hidden text-xs font-bold text-gray-500">Hal {currentPage}</span>
 
                 <button 
                     onclick={() => changePage(currentPage + 1)} 
@@ -568,20 +578,17 @@
             {/if}
 
         {:else}
-            <div class="text-center py-32">
-                <div class="inline-block p-4 rounded-full bg-gray-50 mb-3">
+            <div class="text-center py-24">
+                <div class="inline-block p-4 rounded-full bg-gray-50 mb-4">
                     <FilterIcon size="32" class="text-gray-300"/>
                 </div>
-                <h3 class="text-sm font-bold text-gray-500 mb-2">
-                    {#if isLoading}
-                        Memuat produk...
-                    {:else}
-                        Tidak ada produk ditemukan
-                    {/if}
-                </h3>
-                {#if searchTerm}
-                    <button onclick={() => window.location.href='/katalog'} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Lihat Semua Produk</button>
-                {/if}
+                <h3 class="text-lg font-bold text-gray-900 mb-2">Produk tidak ditemukan</h3>
+                <p class="text-sm text-gray-500 max-w-xs mx-auto mb-6">
+                    Coba ubah kata kunci pencarian atau ganti filter kategori Anda.
+                </p>
+                <button onclick={resetFilter} class="px-6 py-2 bg-gray-900 text-white rounded-full text-xs font-bold hover:bg-[#C4161C] transition-colors">
+                    Lihat Semua Produk
+                </button>
             </div>
         {/if}
     </div>
