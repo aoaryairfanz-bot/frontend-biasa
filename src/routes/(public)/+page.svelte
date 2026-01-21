@@ -292,7 +292,7 @@
             <div class="flex items-center justify-between mb-6">
                 <div class="flex items-center gap-2">
                     <TagIcon size="20" class="text-[#C4161C]"/>
-                    <h2 class="text-xl font-extrabold text-gray-900">Lagi Promo Nih!</h2>
+                    <h2 class="text-xl font-extrabold text-gray-900">Promo!</h2>
                 </div>
                 <a href="/katalog?sort=promo" class="text-xs font-bold text-[#C4161C] hover:underline flex items-center gap-1">
                     Lihat Semua <ChevronRightIcon size="14"/>
