@@ -249,10 +249,11 @@
                 {/each}
             </div>
         </div>
-
+        
         {#if availableSubcategories.length > 0}
-        <div class="w-full overflow-hidden border-t border-gray-50 pt-2" in:fade>
-            <div class="flex gap-2 overflow-x-auto scrollbar-hide w-full px-1 pb-2 items-center snap-x md:justify-center">
+        <div class="w-full border-t border-gray-50 pt-2" in:fade>
+            
+            <div class="flex gap-2 overflow-x-auto scrollbar-hide w-full px-1 pb-2 items-center snap-x">
                 
                 <button 
                     onclick={() => changeSubCategory('all')}
