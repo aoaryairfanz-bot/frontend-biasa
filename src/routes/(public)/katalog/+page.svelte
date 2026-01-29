@@ -249,11 +249,15 @@
                 {/each}
             </div>
         </div>
-        
+
         {#if availableSubcategories.length > 0}
         <div class="w-full border-t border-gray-50 pt-2" in:fade>
             
-            <div class="flex gap-2 overflow-x-auto scrollbar-hide w-full px-1 pb-2 items-center snap-x">
+            <div class="
+                flex gap-2 w-full px-1 pb-2 items-center
+                overflow-x-auto scrollbar-hide snap-x flex-nowrap 
+                md:flex-wrap md:overflow-visible md:justify-start
+            ">
                 
                 <button 
                     onclick={() => changeSubCategory('all')}
@@ -268,7 +272,7 @@
                 {#each availableSubcategories as sub}
                 <button 
                     onclick={() => changeSubCategory(sub)}
-                    class="px-3 py-1.5 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all border snap-start
+                    class="px-3 py-1.5 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all border snap-start mb-1 md:mb-0
                     {activeSubCategory === sub 
                         ? 'bg-[#C4161C] text-white border-[#C4161C]' 
                         : 'bg-white text-gray-500 border-gray-200 hover:border-gray-400 hover:text-gray-700'}"
