@@ -376,7 +376,7 @@
         if (strike > final) return Math.round(((strike - final) / strike) * 100);
         return 0;
     }
-</script>
+<!-- </script> -->
 
 <svelte:head>
     <title>Katalog Produk - Narwastu</title>
@@ -557,4 +557,4 @@
             </div>
         {/if}
     </div>
-</div> -->
+</div>
