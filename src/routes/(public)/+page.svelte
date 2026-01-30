@@ -8,7 +8,8 @@
 
     // --- STATE ---
     let banners = $state([]);
-    let products = $state([]); 
+    let products = $state([]); // Hanya menyimpan sebagian produk (bukan semua)
+    let allSubcategories = $state([]); // [BARU] Menyimpan daftar lengkap kategori
     
     // --- STATE CABANG & MODAL BELI ---
     let branches = $state([]); 
@@ -26,36 +27,21 @@
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
 
-    // FILTER KATEGORI (Sesuai Input Database)
-    const subcategories = $derived.by(() => {
-        const unique = new Set();
-        if (products.length > 0) {
-            for (const s of products) {
-                const isBook = s.category === 'book' || 
-                               (s.name && (s.name.toLowerCase().includes('alkitab') || s.name.toLowerCase().includes('buku')));
+    // 1. FILTER KATEGORI (Menggunakan Data dari API Subkategori)
+    // Logika ini menjamin kategori LENGKAP walau produk di home cuma sedikit.
+    const subcategories = $derived(allSubcategories);
 
-                if (!isBook) {
-                    const cat = s.subcategory || s.category;
-                    if (cat && cat !== 'nonbook') { 
-                        // [UPDATE] Gunakan nama asli dari database, hanya di-trim spasi
-                        const formatted = cat.trim(); 
-                        unique.add(formatted);
-                    }
-                }
-            }
-        }
-        return Array.from(unique).sort();
-    });
-
+    // 2. DATA DISPLAY
+    // Karena kita sudah fetch limit dari server, kita tinggal tampilkan saja
     const latestProducts = $derived(products.slice(0, 12));
 
     const bestSellers = $derived.by(() => {
         if (products.length === 0) return [];
-        // Simulasi bestseller
+        // Simulasi acak dari data yang ada
         return [...products].sort(() => 0.5 - Math.random()).slice(0, 12);
     });
 
-    // FILTER PROMO (Menggunakan Data Backend)
+    // 3. FILTER PROMO (Client Side Filter dari data yang ada)
     const bestPromos = $derived.by(() => {
         if (products.length === 0) return [];
         return products
@@ -68,12 +54,9 @@
             .slice(0, 12);
     });
 
-    // --- ICON MAP ---
-    const getSubIcon = (name) => kategoriImg; 
-
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_v12'; // Update versi cache
+        const CACHE_KEY = 'home_data_optimized_v1'; // Versi cache baru
         const cached = sessionStorage.getItem(CACHE_KEY);
         
         if (cached) {
@@ -82,13 +65,73 @@
                 if (data.banners) { banners = data.banners; loadingBanner = false; }
                 if (data.products) { products = data.products; loadingProducts = false; }
                 if (data.branches) { branches = data.branches; }
+                if (data.subs) { allSubcategories = data.subs; }
             } catch (e) { console.error(e); }
         }
 
-        fetchBannerData();
-        fetchProductData();
-        fetchBranches();
+        // Panggil Parallel biar cepat
+        await Promise.all([
+            fetchBannerData(),
+            fetchProductData(), // Fetch Produk (Limit)
+            fetchSubcategories(), // Fetch Menu Kategori (Lengkap)
+            fetchBranches()
+        ]);
     });
+
+    // [BARU] Ambil Menu Kategori Terpisah
+    async function fetchSubcategories() {
+        try {
+            // Kita coba ambil list kategori lengkap dari backend
+            const res = await fetch(`${PUBLIC_API_URL}/products/subcategories`);
+            if (res.ok) {
+                const data = await res.json();
+                allSubcategories = data;
+                updateCache();
+            }
+        } catch (e) {
+            console.error("Gagal load kategori:", e);
+            // Fallback: Jika endpoint gagal, ambil dari produk yg ada (seperti logika lama)
+            extractSubFromProducts();
+        }
+    }
+
+    // Fallback logic (jika API subcategories belum siap)
+    function extractSubFromProducts() {
+        const unique = new Set();
+        products.forEach(s => {
+            const isBook = s.category === 'book' || (s.name && s.name.toLowerCase().includes('alkitab'));
+            if (!isBook) {
+                const cat = s.subcategory || s.category;
+                if (cat && cat !== 'nonbook') unique.add(cat.trim());
+            }
+        });
+        allSubcategories = Array.from(unique).sort();
+    }
+
+    async function fetchProductData() {
+        try {
+            // [OPTIMASI] Tambahkan limit=20 agar tidak load ribuan produk
+            // Tambahkan sort=newest agar yang tampil barang baru
+            const res = await fetch(`${PUBLIC_API_URL}/products/?limit=20&sort=newest&t=${Date.now()}`);
+            
+            if (res.ok) {
+                let raw = await res.json();
+                // Support format Pagination (data) atau List biasa
+                let cleanData = [];
+                if (raw.data) cleanData = raw.data;
+                else if (Array.isArray(raw)) cleanData = raw; // Fallback jika backend kirim semua
+                
+                // Ambil 20 saja cukup untuk home
+                products = cleanData.slice(0, 20); 
+                
+                // Jika subkategori masih kosong (API gagal), ambil dari sini
+                if (allSubcategories.length === 0) extractSubFromProducts();
+                
+                updateCache();
+            } else { errorMsg = "Gagal memuat produk."; }
+        } catch (e) { errorMsg = "Kesalahan jaringan."; }
+        finally { loadingProducts = false; }
+    }
 
     async function fetchBranches() {
         isLoadingBranches = true;
@@ -116,22 +159,11 @@
         finally { loadingBanner = false; }
     }
 
-    async function fetchProductData() {
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`);
-            if (res.ok) {
-                let raw = await res.json();
-                if (!Array.isArray(raw)) raw = raw.products || raw.data || [];
-                products = raw; 
-                updateCache();
-            } else { errorMsg = "Gagal memuat produk."; }
-        } catch (e) { errorMsg = "Kesalahan jaringann."; }
-        finally { loadingProducts = false; }
-    }
-
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_v12', JSON.stringify({ banners, products, branches }));
+            sessionStorage.setItem('home_data_optimized_v1', JSON.stringify({ 
+                banners, products, branches, subs: allSubcategories 
+            }));
         }
     }
 
