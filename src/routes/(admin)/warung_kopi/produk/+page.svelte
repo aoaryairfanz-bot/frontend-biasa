@@ -13,44 +13,76 @@
     let products = $state([]); 
     let discounts = $state([]); 
     let isLoadingData = $state(true); 
+    
+    // Filter State
     let searchQuery = $state('');
     let activeCategory = $state('all'); 
     let viewMode = $state('list'); 
+    
+    // Pagination State (Server Side)
     let currentPage = $state(1);
     let itemsPerPage = 20; 
+    let totalItems = $state(0);     // Total dari server
+    let totalPages = $state(1);     // Total halaman dari server
+
     let isImporting = $state(false);
     let excelInput;
 
-    const CACHE_KEY = 'admin_products_cache_v3'; 
+    const CACHE_KEY = 'admin_products_page_1'; 
 
     // --- 2. FETCH DATA ---
     onMount(async () => {
         const token = localStorage.getItem("token");
         if (!token) { goto('/login'); return; }
 
-        // A. Load Cache
+        // Load Cache (Hanya untuk tampilan awal instan)
         try {
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
-                products = JSON.parse(cached);
+                const data = JSON.parse(cached);
+                products = data.data || []; 
                 isLoadingData = false;
             }
         } catch (e) { console.error(e); }
 
-        // B. Sync Data
-        await Promise.all([refreshDataInBackground(), loadDiscounts()]);
+        // Sync Data Real
+        await Promise.all([fetchProducts(), loadDiscounts()]);
     });
 
-    async function refreshDataInBackground() {
+    // [PERBAIKAN] Fetch Data Server-Side Pagination
+    async function fetchProducts() {
+        isLoadingData = true;
         const token = localStorage.getItem("token");
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`, {
+            // Kirim parameter page, limit, q, category ke Backend
+            let url = `${PUBLIC_API_URL}/products/?page=${currentPage}&limit=${itemsPerPage}`;
+            if (activeCategory !== 'all') url += `&category=${activeCategory}`;
+            if (searchQuery) url += `&q=${searchQuery}`;
+            url += `&t=${Date.now()}`;
+
+            const res = await fetch(url, {
                 headers: { "Authorization": `Bearer ${token}` }
             });
+
             if (res.ok) {
-                const data = await res.json();
-                products = data;
-                sessionStorage.setItem(CACHE_KEY, JSON.stringify(data));
+                const result = await res.json();
+                
+                // Cek format respon backend (Pagination vs List)
+                if (result.data) {
+                    products = result.data;
+                    totalItems = result.total;
+                    totalPages = result.total_pages;
+                } else {
+                    // Fallback jika backend kirim list biasa
+                    products = result;
+                    totalItems = result.length;
+                    totalPages = 1;
+                }
+
+                // Cache halaman 1 saja agar navigasi balik cepat
+                if (currentPage === 1 && !searchQuery) {
+                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(result));
+                }
             }
         } catch (e) { console.error(e); } 
         finally { isLoadingData = false; }
@@ -76,7 +108,7 @@
         discount_id: 0,
         weight: '', length: '', width: '', height: '', diameter: '',
         isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: '',
-        // [BARU] Container untuk URL Gambar (Smart Paste)
+        // Field URL Khusus (Hidden logic)
         foto_1_url: '', foto_2_url: '', foto_3_url: '' 
     });
 
@@ -85,67 +117,70 @@
 
     let activeUploads = $state([]); 
 
-    // --- 4. LOGIKA FILTER ---
-    let filteredProducts = $derived(products.filter(p => {
-        const term = searchQuery.toLowerCase();
-        const matchesSearch = (p.name && p.name.toLowerCase().includes(term)) || 
-                              (p.sku && p.sku.toLowerCase().includes(term));
-        const matchesCategory = activeCategory === 'all' ? true : p.category === activeCategory;
-        return matchesSearch && matchesCategory;
-    }));
+    // --- 4. ACTION HANDLERS ---
+    
+    // [PERBAIKAN] Search trigger fetch baru
+    function handleSearch() {
+        currentPage = 1;
+        fetchProducts();
+    }
 
-    let paginatedProducts = $derived(filteredProducts.slice((currentPage - 1) * itemsPerPage, currentPage * itemsPerPage));
-    let totalPages = $derived(Math.ceil(filteredProducts.length / itemsPerPage));
-    let uniqueSubcategories = $derived([...new Set(products.map(p => p.subcategory ? p.subcategory.charAt(0).toUpperCase() + p.subcategory.slice(1) : ''))].filter(Boolean).sort());
+    // [PERBAIKAN] Category trigger fetch baru
+    function changeCategory(cat) {
+        activeCategory = cat;
+        currentPage = 1;
+        fetchProducts();
+    }
 
-    // --- 5. HELPER ---
-    function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
-    function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
-    function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
-    function changePage(newPage) { if (newPage >= 1 && newPage <= totalPages) currentPage = newPage; }
+    // [PERBAIKAN] Pagination trigger fetch baru
+    function changePage(newPage) {
+        if (newPage >= 1 && newPage <= totalPages) {
+            currentPage = newPage;
+            fetchProducts();
+        }
+    }
 
-    // [UPDATE] Handler File Input Biasa
+    // --- 5. FILE & PASTE HANDLING ---
+
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
             fileStorage[fieldName] = file;
             previews[fieldName] = URL.createObjectURL(file);
-            if (fieldName.startsWith('foto')) formData[fieldName + '_url'] = ''; // Reset URL jika user upload manual
+            formData[fieldName + '_url'] = ''; // Reset URL jika upload manual
         }
     }
 
-    // [BARU] Handler Paste (Ctrl+V) untuk Gambar/URL
+    // [BARU] Fitur Paste (Ctrl+V) tanpa merusak desain
     function handlePaste(e, fieldName) {
-        if (fieldName === 'video') return; // Skip video paste for now
-
         const clipboardData = e.clipboardData || window.clipboardData;
         
-        // 1. Cek Apakah Paste File Gambar (Blob)
+        // 1. Cek File Gambar di Clipboard
         if (clipboardData.files && clipboardData.files.length > 0) {
             const file = clipboardData.files[0];
             if (file.type.startsWith('image/')) {
                 e.preventDefault();
                 fileStorage[fieldName] = file;
                 previews[fieldName] = URL.createObjectURL(file);
-                formData[fieldName + '_url'] = ''; // Clear URL priority
+                formData[fieldName + '_url'] = '';
                 return;
             }
         }
 
-        // 2. Cek Apakah Paste URL Text
+        // 2. Cek URL Text di Clipboard
         const pastedText = clipboardData.getData('text');
         if (pastedText && (pastedText.startsWith('http') || pastedText.match(/\.(jpeg|jpg|gif|png|webp)/))) {
             e.preventDefault();
-            previews[fieldName] = pastedText; // Preview langsung linknya
-            formData[fieldName + '_url'] = pastedText; // Simpan ke formData URL
-            fileStorage[fieldName] = null; // Hapus file binary agar backend baca URL
+            previews[fieldName] = pastedText; // Tampilkan preview dari link
+            formData[fieldName + '_url'] = pastedText; // Simpan URL untuk dikirim
+            fileStorage[fieldName] = null; // Hapus file binary
         }
     }
 
     function removeFile(fieldName) {
         fileStorage[fieldName] = null;
         previews[fieldName] = null;
-        if (fieldName.startsWith('foto')) formData[fieldName + '_url'] = ''; // Reset URL
+        if (fieldName.startsWith('foto')) formData[fieldName + '_url'] = ''; 
         const input = document.getElementById(fieldName);
         if(input) input.value = '';
     }
@@ -173,17 +208,16 @@
             name: toTitleCase(product.name), 
             subcategory: toTitleCase(product.subcategory),
             discount_id: product.discount ? product.discount.id : 0,
-            foto_1_url: '', foto_2_url: '', foto_3_url: '' // Reset url inputs on edit
+            foto_1_url: '', foto_2_url: '', foto_3_url: '' 
         };
         previews = { 
             foto_1: product.image_1_url, foto_2: product.image_2_url, 
             foto_3: product.image_3_url, video: product.video_url 
         };
-        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
         showModal = true;
     }
 
-    // --- 7. UPLOAD & SAVE (OPTIMIZED) ---
+    // --- 7. UPLOAD & SAVE ---
     function handleQueueUpload(e) {
         e.preventDefault();
         const currentData = { ...formData }; 
@@ -201,17 +235,14 @@
     async function processBackgroundUpload(uploadId, dataPayload, filesPayload, editId) {
         const token = localStorage.getItem("token");
         try {
-            // STEP 1: Simpan Produk Utama
             const dataToSend = new FormData();
             
+            // Handle Images (Priority: File > URL)
             const imageFields = ['foto_1', 'foto_2', 'foto_3'];
             for (const field of imageFields) {
-                // PRIORITAS 1: File Binary (Upload Manual / Paste Gambar)
-                if (filesPayload[field] && filesPayload[field] instanceof File) {
+                if (filesPayload[field] instanceof File) {
                     dataToSend.append(field, filesPayload[field]); 
-                } 
-                // PRIORITAS 2: URL String (Paste Link) -> Kirim ke field khusus _url
-                else if (dataPayload[field + '_url']) {
+                } else if (dataPayload[field + '_url']) {
                     dataToSend.append(field + '_url', dataPayload[field + '_url']);
                 }
             }
@@ -244,7 +275,7 @@
                 const savedProduct = await res.json();
                 const prodId = editId || savedProduct.id;
 
-                // STEP 2: Assign Discount
+                // Assign Discount
                 const discFormData = new FormData();
                 discFormData.append('discount_id', dataPayload.discount_id || 0);
                 
@@ -255,13 +286,12 @@
                 });
 
                 updateUploadStatus(uploadId, 'success');
-                refreshDataInBackground();
+                fetchProducts(); // Refresh Table dengan data baru
             } else {
                 const err = await res.json();
                 updateUploadStatus(uploadId, 'error', err.detail || 'Gagal');
             }
         } catch (error) {
-            console.error(error);
             updateUploadStatus(uploadId, 'error', 'Koneksi Error');
         }
     }
@@ -279,8 +309,7 @@
         const token = localStorage.getItem("token");
         try { 
             await fetch(`${PUBLIC_API_URL}/products/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }); 
-            products = products.filter(p => p.id !== id);
-            sessionStorage.setItem(CACHE_KEY, JSON.stringify(products));
+            fetchProducts(); // Refresh data dari server
         } catch { alert("Error koneksi."); }
     }
 
@@ -297,10 +326,23 @@
             const result = await res.json();
             if (res.ok) { 
                 alert(`✅ Sukses! ${result.message || 'Selesai'}`); 
-                isLoadingData = true; products = []; await refreshDataInBackground();
+                currentPage = 1;
+                fetchProducts();
             } else { alert("Gagal: " + (result.detail || result.message)); }
         } catch { alert("Error upload."); } finally { isImporting = false; if (excelInput) excelInput.value = ''; }
     }
+
+    // Helpers
+    function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
+    function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
+    function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
+    // Unique Subcategories sekarang diambil dari API atau dari data yang tampil (Fallback)
+    // Karena pagination server-side, kita sebaiknya ambil list lengkap dari endpoint khusus jika ada, 
+    // atau biarkan dynamic dari data yg tampil. Di sini kita biarkan dynamic dari 'products' (20 data) agar simple
+    // atau lebih baik hilangkan fitur filter subkategori di tabel admin jika tidak krusial, 
+    // tapi kode ini mempertahankan logic lama:
+    let uniqueSubcategories = $derived([...new Set(products.map(p => p.subcategory ? p.subcategory.charAt(0).toUpperCase() + p.subcategory.slice(1) : ''))].filter(Boolean).sort());
+
 </script>
 
 <div class="space-y-6 relative min-h-screen pb-20">
@@ -334,11 +376,11 @@
 
     <div class="bg-white p-4 rounded-3xl shadow-sm border border-gray-100 flex flex-col gap-4">
         <div class="flex flex-col md:flex-row justify-between items-center gap-4">
-            <div><h2 class="text-2xl font-bold text-gray-800 pl-2">Katalog Produk</h2><p class="text-xs text-gray-500 pl-2">Kelola {products.length} produk</p></div>
+            <div><h2 class="text-2xl font-bold text-gray-800 pl-2">Katalog Produk</h2><p class="text-xs text-gray-500 pl-2">Total {totalItems} produk</p></div>
             <div class="flex items-center gap-3 w-full md:w-auto">
                 <div class="relative flex-1 md:w-64">
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon size="18" /></span>
-                    <input type="text" bind:value={searchQuery} placeholder="Cari Nama / SKU..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none transition" />
+                    <input type="text" bind:value={searchQuery} on:change={handleSearch} placeholder="Cari Nama / SKU..." class="w-full pl-10 pr-4 py-2 bg-gray-50 border-none rounded-xl text-sm focus:ring-2 focus:ring-blue-100 outline-none transition" />
                 </div>
                 <input type="file" bind:this={excelInput} on:change={handleExcelUpload} accept=".xlsx, .xls" hidden />
                 <button on:click={() => excelInput.click()} disabled={isImporting} class="bg-green-600 hover:bg-green-700 text-white px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition">
@@ -351,9 +393,9 @@
         </div>
         <div class="flex flex-col md:flex-row justify-between items-center gap-4 pt-2 border-t border-gray-50">
             <div class="flex p-1 bg-gray-100 rounded-xl">
-                <button on:click={() => {activeCategory = 'all'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
-                <button on:click={() => {activeCategory = 'book'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'book' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BookIcon size="14"/> Buku</button>
-                <button on:click={() => {activeCategory = 'nonbook'; currentPage = 1;}} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'nonbook' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BoxIcon size="14"/> Non-Buku</button>
+                <button on:click={() => changeCategory('all')} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all {activeCategory === 'all' ? 'bg-white text-gray-800 shadow-sm' : 'text-gray-500 hover:text-gray-700'}">Semua</button>
+                <button on:click={() => changeCategory('book')} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'book' ? 'bg-white text-blue-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BookIcon size="14"/> Buku</button>
+                <button on:click={() => changeCategory('nonbook')} class="px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-2 {activeCategory === 'nonbook' ? 'bg-white text-orange-600 shadow-sm' : 'text-gray-500 hover:text-gray-700'}"><BoxIcon size="14"/> Non-Buku</button>
             </div>
             <div class="flex gap-2">
                 <button on:click={() => viewMode = 'grid'} class="p-2 rounded-lg transition {viewMode === 'grid' ? 'bg-blue-100 text-blue-600' : 'text-gray-400 hover:bg-gray-100'}"><GridIcon size="18"/></button>
@@ -370,7 +412,7 @@
     {:else}
         {#if viewMode === 'grid'}
             <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-4">
-                {#each paginatedProducts as product}
+                {#each products as product}
                 <div class="bg-white rounded-2xl shadow-sm hover:shadow-lg transition-shadow duration-300 overflow-hidden group flex flex-col relative">
                     
                     {#if product.discount_label}
@@ -417,7 +459,7 @@
                             </tr>
                         </thead>
                         <tbody class="divide-y divide-gray-100 text-sm">
-                            {#each paginatedProducts as product}
+                            {#each products as product}
                             <tr class="group hover:bg-blue-50/30 transition">
                                 <td class="p-4 flex items-center gap-3">
                                     <img src={product.image_1_url || 'https://placehold.co/100?text=No+Img'} alt="img" class="w-10 h-10 rounded-lg object-cover bg-gray-100" />
@@ -454,7 +496,7 @@
                 </div>
             </div>
         {/if}
-        {#if paginatedProducts.length === 0} <div class="flex flex-col items-center justify-center py-20 text-gray-400"><FilterIcon size="48" class="mb-4 text-gray-200"/><p>Tidak ada produk yang cocok.</p></div> {/if}
+        {#if products.length === 0} <div class="flex flex-col items-center justify-center py-20 text-gray-400"><FilterIcon size="48" class="mb-4 text-gray-200"/><p>Tidak ada produk yang cocok.</p></div> {/if}
         {#if totalPages > 1}
         <div class="flex justify-center items-center gap-4 mt-8">
             <button on:click={() => changePage(currentPage - 1)} disabled={currentPage === 1} class="p-2 rounded-full border border-gray-200 hover:bg-gray-50 disabled:opacity-30"><ChevronLeftIcon size="20"/></button>
