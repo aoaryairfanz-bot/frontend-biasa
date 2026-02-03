@@ -13,6 +13,8 @@
     let products = $state([]); 
     let discounts = $state([]); 
     let isLoadingData = $state(true); 
+    
+    // Filter & Pagination
     let searchQuery = $state('');
     let activeCategory = $state('all'); 
     let viewMode = $state('list'); 
@@ -20,14 +22,27 @@
     let itemsPerPage = 20; 
     let totalItems = $state(0);
     let totalPages = $state(1);
+
     let isImporting = $state(false);
     let excelInput;
 
-    const CACHE_KEY = 'admin_products_v6_fixed'; 
+    const CACHE_KEY = 'admin_products_v7_optimized'; 
 
+    // --- 2. FETCH DATA ---
     onMount(async () => {
         const token = localStorage.getItem("token");
         if (!token) { goto('/login'); return; }
+        
+        // Cache (Load Cepat)
+        try {
+            const cached = sessionStorage.getItem(CACHE_KEY);
+            if (cached) {
+                const data = JSON.parse(cached);
+                products = data.data || []; 
+                isLoadingData = false;
+            }
+        } catch (e) {}
+
         await Promise.all([fetchProducts(), loadDiscounts()]);
     });
 
@@ -48,10 +63,13 @@
                     totalItems = result.total;
                     totalPages = result.total_pages;
                 } else {
-                    products = result;
+                    products = result; // Fallback
                     totalItems = result.length;
                     totalPages = 1;
                 }
+                
+                // Simpan cache halaman 1
+                if (currentPage === 1 && !searchQuery) sessionStorage.setItem(CACHE_KEY, JSON.stringify(result));
             }
         } catch (e) { console.error(e); } 
         finally { isLoadingData = false; }
@@ -63,10 +81,10 @@
                 headers: { "Authorization": `Bearer ${localStorage.getItem("token")}` }
             });
             if (res.ok) discounts = await res.json();
-        } catch (e) { console.error("Gagal diskon", e); }
+        } catch (e) {}
     }
 
-    // --- 3. FORM ---
+    // --- 3. FORM STATE ---
     let showModal = $state(false);
     let editingId = $state(null);
     let formData = $state({
@@ -80,12 +98,13 @@
     let previews = $state({ foto_1: null, foto_2: null, foto_3: null, video: null });
     let activeUploads = $state([]); 
 
+    // --- 4. HANDLERS ---
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
             fileStorage[fieldName] = file;
             previews[fieldName] = URL.createObjectURL(file);
-            formData[fieldName + '_url'] = ''; 
+            formData[fieldName + '_url'] = ''; // Clear URL jika upload manual
         }
     }
 
@@ -209,6 +228,7 @@
         if (status === 'success') setTimeout(() => activeUploads = activeUploads.filter(u => u.id !== id), 4000);
     }
 
+    // --- HELPERS ---
     function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
     function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
     function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
@@ -219,6 +239,7 @@
         fetchProducts();
     }
     
+    // Subkategori Unik (Client-side fallback)
     let uniqueSubcategories = $derived([...new Set(products.map(p => p.subcategory ? toTitleCase(p.subcategory) : ''))].filter(Boolean).sort());
 </script>
 
@@ -237,7 +258,8 @@
         {/each}
     </div>
 
-    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3"> <div class="flex flex-col md:flex-row justify-between items-center gap-3">
+    <div class="bg-white p-4 rounded-2xl shadow-sm border border-gray-100 flex flex-col gap-3">
+        <div class="flex flex-col md:flex-row justify-between items-center gap-3">
             <div><h2 class="text-xl font-bold text-gray-800 pl-1">Katalog Produk</h2><p class="text-[10px] text-gray-500 pl-1 uppercase tracking-wide font-bold">Total {totalItems} items</p></div>
             <div class="flex items-center gap-2 w-full md:w-auto">
                 <div class="relative flex-1 md:w-64">
@@ -270,7 +292,8 @@
         <div class="flex flex-col items-center justify-center py-20 text-gray-400"><LoaderIcon size="32" class="mb-2 text-blue-300 animate-spin"/><p class="text-xs font-bold">Sedang memuat...</p></div>
     {:else}
         {#if viewMode === 'grid'}
-            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3"> {#each products as product}
+            <div class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
+                {#each products as product}
                 <div class="bg-white rounded-xl shadow-sm hover:shadow-md transition-all duration-300 overflow-hidden group flex flex-col relative border border-gray-100">
                     {#if product.discount_label} <div class="absolute top-2 right-2 z-10 bg-red-600 text-white text-[9px] font-black px-1.5 py-0.5 rounded shadow-sm">{product.discount_label}</div> {/if}
                     <div class="relative aspect-square bg-gray-50 overflow-hidden">
