@@ -112,10 +112,10 @@
                 <span>Produk</span>
             </a>
 
-            <a href="/warung_kopi/diskon" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm {isActive('/warung_kopi/diskon')}">
+            <!-- <a href="/warung_kopi/diskon" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm {isActive('/warung_kopi/diskon')}">
                 <TagIcon size="18" />
                 <span>Kelola Diskon</span>
-            </a>
+            </a> -->
 
             <a href="/warung_kopi/banner" class="flex items-center gap-3 px-3 py-2.5 rounded-lg transition-all duration-200 text-sm {isActive('/warung_kopi/banner')}">
                 <ImageIcon size="18" />
