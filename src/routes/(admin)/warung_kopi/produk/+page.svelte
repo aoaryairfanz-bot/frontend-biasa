@@ -26,16 +26,17 @@
     let totalPages = $state(1);
 
     let isImporting = $state(false);
-    let excelInput; // Binding element
+    let excelInput; 
 
     const CACHE_KEY = 'admin_products_v10_svelte5'; 
 
     // --- 2. FETCH DATA ---
     onMount(async () => {
+        if (typeof localStorage === 'undefined') return;
         const token = localStorage.getItem("token");
         if (!token) { goto('/login'); return; }
 
-        // Load Cache (Agar UI muncul duluan)
+        // Load Cache
         try {
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
@@ -89,8 +90,7 @@
         } catch (e) {}
     }
 
-    // --- 3. DERIVED STATE (SVELTE 5) ---
-    // Menggunakan $derived untuk kalkulasi otomatis
+    // --- 3. DERIVED STATE ---
     let uniqueSubcategories = $derived(
         products 
         ? [...new Set(products.map(p => p.subcategory ? toTitleCase(p.subcategory) : ''))].filter(Boolean).sort()
@@ -139,14 +139,14 @@
         if (file) {
             fileStorage[fieldName] = file;
             previews[fieldName] = URL.createObjectURL(file);
-            formData[fieldName + '_url'] = ''; // Reset URL priority
+            formData[fieldName + '_url'] = ''; 
         }
     }
 
     function handlePaste(e, fieldName) {
         const clipboardData = e.clipboardData || window.clipboardData;
         
-        // 1. Paste Gambar
+        // 1. Paste Gambar (File)
         if (clipboardData.files && clipboardData.files.length > 0) {
             const file = clipboardData.files[0];
             if (file.type.startsWith('image/')) {
@@ -205,7 +205,6 @@
             foto_1: product.image_1_url, foto_2: product.image_2_url, 
             foto_3: product.image_3_url, video: product.video_url 
         };
-        // Reset file storage fisik karena kita pakai URL dari server
         fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
         showModal = true;
     }
@@ -213,8 +212,9 @@
     // --- UPLOAD ---
     function handleQueueUpload(e) {
         e.preventDefault();
-        const currentData = $state.snapshot(formData); // Snapshot untuk menghindari mutasi async issue
-        const currentFiles = $state.snapshot(fileStorage);
+        // Snapshot Svelte 5 state agar aman saat async
+        const currentData = JSON.parse(JSON.stringify(formData)); 
+        const currentFiles = { ...fileStorage }; // Shallow copy file object is OK
         const isEdit = editingId; 
         const uploadId = Date.now(); 
         
