@@ -36,7 +36,6 @@
         const token = localStorage.getItem("token");
         if (!token) { goto('/login'); return; }
 
-        // Load Cache
         try {
             const cached = sessionStorage.getItem(CACHE_KEY);
             if (cached) {
@@ -91,9 +90,10 @@
     }
 
     // --- 3. DERIVED STATE ---
+    // [FIX] Jangan paksa Title Case di sini agar filter akurat
     let uniqueSubcategories = $derived(
         products 
-        ? [...new Set(products.map(p => p.subcategory ? toTitleCase(p.subcategory) : ''))].filter(Boolean).sort()
+        ? [...new Set(products.map(p => p.subcategory || ''))].filter(Boolean).sort()
         : []
     );
 
@@ -133,7 +133,6 @@
     }
 
     // --- FILE & PASTE HANDLING ---
-
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
@@ -146,7 +145,6 @@
     function handlePaste(e, fieldName) {
         const clipboardData = e.clipboardData || window.clipboardData;
         
-        // 1. Paste Gambar (File)
         if (clipboardData.files && clipboardData.files.length > 0) {
             const file = clipboardData.files[0];
             if (file.type.startsWith('image/')) {
@@ -158,7 +156,6 @@
             }
         }
         
-        // 2. Paste URL Text
         const pastedText = clipboardData.getData('text');
         if (pastedText && (pastedText.startsWith('http') || pastedText.match(/\.(jpeg|jpg|gif|png|webp)/))) {
             e.preventDefault();
@@ -192,12 +189,14 @@
 
     function openAddModal() { resetForm(); showModal = true; }
     
+    // [FIX UTAMA] Jangan gunakan toTitleCase() saat load data edit!
+    // Biarkan data apa adanya dari database (Agar TUHAN YESUS tetap TUHAN YESUS)
     function openEditModal(product) {
         editingId = product.id;
         formData = { 
             ...product, 
-            name: toTitleCase(product.name), 
-            subcategory: toTitleCase(product.subcategory),
+            name: product.name, // [FIX] Hapus toTitleCase()
+            subcategory: product.subcategory, // [FIX] Hapus toTitleCase()
             discount_id: product.discount ? product.discount.id : 0,
             foto_1_url: '', foto_2_url: '', foto_3_url: '' 
         };
@@ -212,9 +211,9 @@
     // --- UPLOAD ---
     function handleQueueUpload(e) {
         e.preventDefault();
-        // Snapshot Svelte 5 state agar aman saat async
+        // Snapshot Svelte 5 state
         const currentData = JSON.parse(JSON.stringify(formData)); 
-        const currentFiles = { ...fileStorage }; // Shallow copy file object is OK
+        const currentFiles = { ...fileStorage }; 
         const isEdit = editingId; 
         const uploadId = Date.now(); 
         
@@ -240,7 +239,11 @@
             }
             if (filesPayload.video instanceof File) dataToSend.append('video', filesPayload.video);
 
-            const keys = ['name', 'subcategory', 'sku', 'category', 'price', 'stock', 'description', 'strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
+            // [FIX] Kirim data persis seperti inputan (Tanpa toTitleCase)
+            dataToSend.append('name', dataPayload.name); 
+            dataToSend.append('subcategory', dataPayload.subcategory || '');
+
+            const keys = ['sku', 'category', 'price', 'stock', 'description', 'strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
             keys.forEach(k => dataToSend.append(k, String(dataPayload[k] || '')));
 
             let url = `${PUBLIC_API_URL}/products/`;
@@ -307,6 +310,7 @@
 
     // --- HELPERS ---
     function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
+    // [FIX] Helper toTitleCase tetap ada untuk tampilan tabel, tapi TIDAK dipakai di form edit
     function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
     function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
 </script>
@@ -509,7 +513,6 @@
                         
                         <div class="mb-3">
                             <label class="block text-xs font-bold text-gray-700 mb-1">Foto Utama</label>
-                            
                             <div 
                                 role="button" 
                                 tabindex="0" 
