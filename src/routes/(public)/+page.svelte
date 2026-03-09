@@ -216,6 +216,490 @@
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
+    
+    /* Animasi background hiasan untuk banner baru */
+    @keyframes blob {
+        0% { transform: translate(0px, 0px) scale(1); }
+        33% { transform: translate(30px, -50px) scale(1.1); }
+        66% { transform: translate(-20px, 20px) scale(0.9); }
+        100% { transform: translate(0px, 0px) scale(1); }
+    }
+    .animate-blob { animation: blob 7s infinite; }
+    .animation-delay-2000 { animation-delay: 2s; }
+</style>
+
+<div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
+    
+    <section class="w-full mt-4 mb-14" aria-label="Hero Utama">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="bg-gray-50/50 rounded-3xl overflow-hidden py-12 lg:py-16 relative shadow-sm border border-gray-100">
+                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-6 items-center px-6 md:px-12">
+                    
+                    <div class="order-1 lg:order-1 relative flex justify-center lg:justify-start gap-3 z-10 w-full">
+                        {#if loadingProducts && products.length === 0}
+                            <div class="flex flex-col gap-3 justify-end pb-6">
+                                <div class="w-32 h-32 md:w-48 md:h-48 bg-gray-200 animate-pulse rounded-2xl"></div>
+                                <div class="w-24 h-24 md:w-32 md:h-32 bg-gray-200 animate-pulse rounded-2xl ml-auto"></div>
+                            </div>
+                            <div class="flex items-center">
+                                <div class="w-48 h-48 md:w-72 md:h-72 bg-gray-200 animate-pulse rounded-2xl"></div>
+                            </div>
+                        {:else}
+                            <div class="flex flex-col gap-3 justify-end pb-6">
+                                <img 
+                                    src={products[0] ? optimizeUrl(products[0].image_1_url) : "https://placehold.co/400x400/e2e8f0/64748b?text=Produk+1"} 
+                                    alt="Produk Narwastu" 
+                                    class="w-32 h-32 md:w-48 md:h-48 object-cover rounded-2xl shadow-md hover:shadow-lg transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
+                                />
+                                <img 
+                                    src={products[1] ? optimizeUrl(products[1].image_1_url) : "https://placehold.co/300x300/e2e8f0/64748b?text=Produk+2"} 
+                                    alt="Produk Narwastu" 
+                                    class="w-24 h-24 md:w-32 md:h-32 object-cover rounded-2xl shadow-md ml-auto hover:shadow-lg transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
+                                />
+                            </div>
+
+                            <div class="flex items-center">
+                                <img 
+                                    src={products[2] ? optimizeUrl(products[2].image_1_url) : "https://placehold.co/600x600/e2e8f0/64748b?text=Produk+3"} 
+                                    alt="Produk Narwastu Utama" 
+                                    class="w-48 h-48 md:w-72 md:h-72 object-cover rounded-2xl shadow-xl hover:shadow-2xl transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
+                                />
+                            </div>
+                        {/if}
+
+                        <div class="absolute -bottom-6 -left-6 w-32 h-32 bg-red-100 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob -z-10"></div>
+                        <div class="absolute -top-6 left-1/2 w-40 h-40 bg-gray-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000 -z-10"></div>
+                    </div>
+
+                    <div class="order-2 lg:order-2 text-center lg:text-left flex flex-col justify-center relative z-10 pl-0 lg:pl-10">
+                        <h1 class="text-4xl md:text-5xl lg:text-[54px] font-extrabold text-gray-900 mb-4 tracking-tight leading-tight" style="font-family: 'Cinzel', serif;">
+                            Narwastu <br/>
+                            <span class="text-[#C4161C]">STORE</span>
+                        </h1>
+                        <p class="text-sm md:text-base text-gray-600 mb-8 leading-relaxed max-w-md mx-auto lg:mx-0">
+                            Pusat pernak-pernik rohani dan perlengkapan ibadah berkualitas. Kami hadir untuk melayani umat dengan sepenuh hati demi menguatkan iman.
+                        </p>
+                        <div>
+                            <a href="/katalog" class="inline-flex items-center justify-center px-8 py-3.5 text-sm font-bold text-white transition-all duration-300 bg-[#C4161C] rounded-full shadow-lg hover:bg-red-800 hover:shadow-xl hover:-translate-y-0.5">
+                                Belanja Sekarang
+                            </a>
+                        </div>
+                    </div>
+
+                </div>
+            </div>
+        </div>
+    </section>
+    <nav class="w-full mb-12" aria-label="Kategori">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-4">
+                <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Kategori Pilihan</h3>
+            </div>
+            <div class="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
+                {#if loadingProducts && subcategories.length === 0}
+                    {#each Array(6) as _}<div class="w-24 h-10 bg-gray-100 rounded-full animate-pulse shrink-0"></div>{/each}
+                {:else}
+                    <a href="/katalog" class="px-5 py-2.5 rounded-full bg-gray-900 text-white text-xs font-bold whitespace-nowrap shrink-0 hover:bg-[#C4161C] transition-colors shadow-sm snap-start">
+                        Semua Produk
+                    </a>
+                    {#each subcategories as sub}
+                        <a href="/katalog?search={sub}" class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-semibold whitespace-nowrap shrink-0 hover:border-[#C4161C] hover:text-[#C4161C] hover:shadow-sm transition-all snap-start">
+                            {sub}
+                        </a>
+                    {/each}
+                {/if}
+            </div>
+        </div>
+    </nav>
+
+    {#snippet productCard(item)}
+        <div class="group relative flex flex-col h-full cursor-pointer">
+            <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
+                <a href="/produk/{item.slug}" class="block w-full h-full">
+                    <img 
+                        src={optimizeUrl(item.image_1_url)} 
+                        alt={item.name} 
+                        loading="lazy" decoding="async" 
+                        class="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" 
+                    />
+                </a>
+                
+                {#if item.discount_label}
+                    <span class="absolute top-0 left-0 bg-[#C4161C] text-white text-[10px] font-bold px-2 py-1 rounded-br-lg shadow-sm z-10">
+                        {item.discount_label}
+                    </span>
+                {/if}
+            </div>
+
+            <div class="flex flex-col flex-grow px-1">
+                <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">
+                    {item.subcategory || item.category || 'Umum'}
+                </div>
+
+                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]">
+                    <a href="/produk/{item.slug}">{item.name}</a>
+                </h3>
+
+                <div class="mt-auto pt-1">
+                    <div class="flex flex-col items-start">
+                        {#if item.display_strike_price > item.final_price}
+                            <span class="text-[10px] text-gray-400 line-through decoration-gray-300 mb-0.5">
+                                {formatRupiah(item.display_strike_price)}
+                            </span>
+                        {/if}
+                        <span class="text-base font-black text-[#C4161C]">
+                            {formatRupiah(item.final_price)}
+                        </span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    {/snippet}
+
+    {#if bestPromos.length > 0}
+    <section class="mb-16 bg-red-50/50 py-10" aria-label="Promo">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <TagIcon size="20" class="text-[#C4161C]"/>
+                    <h2 class="text-xl font-extrabold text-gray-900">Promo!</h2>
+                </div>
+                <a href="/katalog?sort=promo" class="text-xs font-bold text-[#C4161C] hover:underline flex items-center gap-1">
+                    Lihat Semua <ChevronRightIcon size="14"/>
+                </a>
+            </div>
+            
+            <div class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
+                {#each bestPromos as item}
+                    <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">
+                        {@render productCard(item)}
+                    </div>
+                {/each}
+            </div>
+        </div>
+    </section>
+    {/if}
+
+    <section class="mb-16" aria-label="Terbaru">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Koleksi Terbaru</h2>
+                <a href="/katalog?sort=newest" class="text-xs font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1">
+                    Lihat Semua <ChevronRightIcon size="14"/>
+                </a>
+            </div>
+
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                {#if loadingProducts && products.length === 0}
+                    {#each Array(6) as _}
+                        <div class="flex flex-col gap-2">
+                            <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
+                            <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
+                            <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
+                        </div>
+                    {/each}
+                {:else}
+                    {#each latestProducts as item}
+                        {@render productCard(item)}
+                    {/each}
+                {/if}
+            </div>
+        </div>
+    </section>
+
+    <section class="mb-16" aria-label="Best Seller">
+        <div class="container mx-auto px-4 max-w-[1200px]">
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Paling Dicari</h2>
+            </div>
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
+                {#each bestSellers as item}
+                    {@render productCard(item)}
+                {/each}
+            </div>
+        </div>
+    </section>
+
+    {#if showBranchModal}
+    <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+        <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+            
+            <div class="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
+                <div>
+                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi Cabang</h3>
+                    <p class="text-xs text-gray-500">Hubungi cabang terdekat via WhatsApp</p>
+                </div>
+                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition">
+                    <XIcon size="20"/>
+                </button>
+            </div>
+            
+            <div class="p-6 bg-white overflow-y-auto custom-scrollbar flex-1">
+                {#if isLoadingBranches}
+                    <div class="text-center py-10 text-gray-400 animate-pulse text-sm">Memuat data...</div>
+                {:else if branches.length === 0}
+                    <div class="text-center py-10 text-gray-400 text-sm">Belum ada data cabang.</div>
+                {:else}
+                    <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
+                        {#each branches as branch}
+                            <button onclick={() => chatBranch(branch.whatsapp)} 
+                                class="border border-gray-100 rounded-xl p-4 hover:border-[#C4161C] hover:bg-red-50/20 transition-all text-left group h-full flex flex-col justify-between shadow-sm hover:shadow-md active:scale-[0.98]">
+                                
+                                <div>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">
+                                        {#if branch.id === 1} PUSAT {:else} CABANG {/if}
+                                    </div>
+                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm leading-snug mb-3 group-hover:text-[#C4161C] transition-colors">
+                                        {branch.name.replace('Narwastu ', '')}
+                                    </h4>
+                                </div>
+
+                                <div class="flex items-center gap-1.5 text-[#C4161C] text-[10px] font-bold mt-auto bg-white border border-[#C4161C]/20 px-2 py-1.5 rounded-lg w-fit group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                    <MessageCircleIcon size="12"/>
+                                    <span>Chat WA</span>
+                                </div>
+                            </button>
+                        {/each}
+                    </div>
+                {/if}
+            </div>
+        </div>
+    </div>
+    {/if}
+
+    {#if errorMsg}
+        <div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl z-50 text-sm font-bold flex items-center gap-3">
+            <AlertCircleIcon size="18" />
+            <span>{errorMsg}</span>
+            <button onclick={() => window.location.reload()}><RefreshCwIcon size="16"/></button>
+        </div>
+    {/if}
+
+</div>
+
+
+
+
+
+
+<!-- <script>
+    import { onMount } from 'svelte';
+    import { fly, fade } from 'svelte/transition'; 
+    import { browser } from '$app/environment';
+    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon, ChevronRightIcon, TagIcon } from 'svelte-feather-icons'; 
+    import { PUBLIC_API_URL } from '$env/static/public'; 
+    import kategoriImg from '$lib/assets/kategori.png';
+
+    // --- STATE ---
+    let banners = $state([]);
+    let products = $state([]); // Hanya menyimpan sebagian produk (bukan semua)
+    let allSubcategories = $state([]); // [BARU] Menyimpan daftar lengkap kategori
+    
+    // --- STATE CABANG & MODAL BELI ---
+    let branches = $state([]); 
+    let showBranchModal = $state(false);
+    let selectedProduct = $state(null);
+    let isLoadingBranches = $state(false);
+
+    // State Loading & Error
+    let loadingBanner = $state(true);
+    let loadingProducts = $state(true);
+    let errorMsg = $state("");
+    
+    let currentIndex = $state(0);
+
+    // --- DERIVED DATA ---
+    const displayBanners = $derived(banners.slice(0, 5));
+
+    // 1. FILTER KATEGORI (Menggunakan Data dari API Subkategori)
+    // Logika ini menjamin kategori LENGKAP walau produk di home cuma sedikit.
+    const subcategories = $derived(allSubcategories);
+
+    // 2. DATA DISPLAY
+    // Karena kita sudah fetch limit dari server, kita tinggal tampilkan saja
+    const latestProducts = $derived(products.slice(0, 12));
+
+    const bestSellers = $derived.by(() => {
+        if (products.length === 0) return [];
+        // Simulasi acak dari data yang ada
+        return [...products].sort(() => 0.5 - Math.random()).slice(0, 12);
+    });
+
+    // 3. FILTER PROMO (Client Side Filter dari data yang ada)
+    const bestPromos = $derived.by(() => {
+        if (products.length === 0) return [];
+        return products
+            .filter(p => p.discount_label || (p.display_strike_price > p.final_price))
+            .sort((a, b) => {
+                const discA = parseInt(a.discount_label) || 0;
+                const discB = parseInt(b.discount_label) || 0;
+                return discB - discA;
+            })
+            .slice(0, 12);
+    });
+
+    // --- FETCH DATA ---
+    onMount(async () => {
+        const CACHE_KEY = 'home_data_optimized_v1'; // Versi cache baru
+        const cached = sessionStorage.getItem(CACHE_KEY);
+        
+        if (cached) {
+            try {
+                const data = JSON.parse(cached);
+                if (data.banners) { banners = data.banners; loadingBanner = false; }
+                if (data.products) { products = data.products; loadingProducts = false; }
+                if (data.branches) { branches = data.branches; }
+                if (data.subs) { allSubcategories = data.subs; }
+            } catch (e) { console.error(e); }
+        }
+
+        // Panggil Parallel biar cepat
+        await Promise.all([
+            fetchBannerData(),
+            fetchProductData(), // Fetch Produk (Limit)
+            fetchSubcategories(), // Fetch Menu Kategori (Lengkap)
+            fetchBranches()
+        ]);
+    });
+
+    // [BARU] Ambil Menu Kategori Terpisah
+    async function fetchSubcategories() {
+        try {
+            // Kita coba ambil list kategori lengkap dari backend
+            const res = await fetch(`${PUBLIC_API_URL}/products/subcategories`);
+            if (res.ok) {
+                const data = await res.json();
+                allSubcategories = data;
+                updateCache();
+            }
+        } catch (e) {
+            console.error("Gagal load kategori:", e);
+            // Fallback: Jika endpoint gagal, ambil dari produk yg ada (seperti logika lama)
+            extractSubFromProducts();
+        }
+    }
+
+    // Fallback logic (jika API subcategories belum siap)
+    function extractSubFromProducts() {
+        const unique = new Set();
+        products.forEach(s => {
+            const isBook = s.category === 'book' || (s.name && s.name.toLowerCase().includes('alkitab'));
+            if (!isBook) {
+                const cat = s.subcategory || s.category;
+                if (cat && cat !== 'nonbook') unique.add(cat.trim());
+            }
+        });
+        allSubcategories = Array.from(unique).sort();
+    }
+
+    async function fetchProductData() {
+        try {
+            // [OPTIMASI] Tambahkan limit=20 agar tidak load ribuan produk
+            // Tambahkan sort=newest agar yang tampil barang baru
+            const res = await fetch(`${PUBLIC_API_URL}/products/?limit=20&sort=newest&t=${Date.now()}`);
+            
+            if (res.ok) {
+                let raw = await res.json();
+                // Support format Pagination (data) atau List biasa
+                let cleanData = [];
+                if (raw.data) cleanData = raw.data;
+                else if (Array.isArray(raw)) cleanData = raw; // Fallback jika backend kirim semua
+                
+                // Ambil 20 saja cukup untuk home
+                products = cleanData.slice(0, 20); 
+                
+                // Jika subkategori masih kosong (API gagal), ambil dari sini
+                if (allSubcategories.length === 0) extractSubFromProducts();
+                
+                updateCache();
+            } else { errorMsg = "Gagal memuat produk."; }
+        } catch (e) { errorMsg = "Kesalahan jaringan."; }
+        finally { loadingProducts = false; }
+    }
+
+    async function fetchBranches() {
+        isLoadingBranches = true;
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/branches?include_inactive=false`);
+            if (res.ok) {
+                const raw = await res.json();
+                branches = Array.isArray(raw) ? raw : (raw.data || []);
+                updateCache();
+            }
+        } catch (e) { console.error("Gagal load cabang", e); }
+        finally { isLoadingBranches = false; }
+    }
+
+    async function fetchBannerData() {
+        try {
+            const res = await fetch(`${PUBLIC_API_URL}/banners/`); 
+            if (res.ok) {
+                let raw = await res.json();
+                if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
+                banners = raw; 
+                updateCache();
+            }
+        } catch (e) { console.error("Banner Error", e); } 
+        finally { loadingBanner = false; }
+    }
+
+    function updateCache() {
+        if (banners.length > 0 && products.length > 0) {
+            sessionStorage.setItem('home_data_optimized_v1', JSON.stringify({ 
+                banners, products, branches, subs: allSubcategories 
+            }));
+        }
+    }
+
+    if (browser) {
+        $effect(() => {
+            if (displayBanners.length > 1) {
+                const timer = setInterval(() => { currentIndex = (currentIndex + 1) % displayBanners.length; }, 5000);
+                return () => clearInterval(timer);
+            }
+        });
+    }
+
+    // --- ACTIONS ---
+    function buyNow(product) {
+        selectedProduct = product;
+        showBranchModal = true;
+    }
+
+    function chatBranch(branchPhone) {
+        if (!selectedProduct || !branchPhone) return;
+        const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
+        const urlProduk = `${window.location.origin}/produk/${selectedProduct.slug}`;
+        
+        const pesan = 
+            `*${selectedProduct.name}*\n` +
+            `Harga: ${formatRupiah(selectedProduct.final_price)}\n` + 
+            `Link: ${urlProduk}\n\n` + 
+            `Hallo Admin, apakah stok produk ini masih tersedia di cabang kakak?`;
+            
+        window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
+        showBranchModal = false; 
+    }
+
+    const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
+    function formatRupiah(angka) { return rupiahFormatter.format(angka || 0); }
+    function optimizeUrl(url) { return url; }
+</script>
+
+<svelte:head>
+    <title>Narwastu - Toko Kristiani</title>
+    <meta name="description" content="Toko Rohani Narwastu menjual perlengkapan ibadah." />
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+</svelte:head>
+
+<style>
+    .scrollbar-hide::-webkit-scrollbar { display: none; }
+    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
+    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
+    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
+    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
 </style>
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
@@ -437,4 +921,4 @@
         </div>
     {/if}
 
-</div>
+</div> -->
