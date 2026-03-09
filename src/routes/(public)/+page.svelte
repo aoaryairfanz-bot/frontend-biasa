@@ -28,16 +28,13 @@
     const displayBanners = $derived(banners.slice(0, 5));
 
     // 1. FILTER KATEGORI (Menggunakan Data dari API Subkategori)
-    // Logika ini menjamin kategori LENGKAP walau produk di home cuma sedikit.
     const subcategories = $derived(allSubcategories);
 
     // 2. DATA DISPLAY
-    // Karena kita sudah fetch limit dari server, kita tinggal tampilkan saja
     const latestProducts = $derived(products.slice(0, 12));
 
     const bestSellers = $derived.by(() => {
         if (products.length === 0) return [];
-        // Simulasi acak dari data yang ada
         return [...products].sort(() => 0.5 - Math.random()).slice(0, 12);
     });
 
@@ -54,9 +51,25 @@
             .slice(0, 12);
     });
 
+    // 4. FILTER GAMBAR HERO (Patung, Salib, Alkitab)
+    const heroImages = $derived.by(() => {
+        if (products.length === 0) return [null, null, null];
+        
+        let patung = products.find(p => p.name.toLowerCase().includes('patung') || (p.subcategory && p.subcategory.toLowerCase().includes('patung')));
+        let salib = products.find(p => p.name.toLowerCase().includes('salib') || (p.subcategory && p.subcategory.toLowerCase().includes('salib')));
+        let alkitab = products.find(p => p.name.toLowerCase().includes('alkitab') || p.category === 'book');
+
+        // Fallback jika tidak menemukan kata kunci tersebut, ambil urutan teratas
+        patung = patung || products[0];
+        salib = salib || products[1] || products[0];
+        alkitab = alkitab || products[2] || products[0];
+
+        return [patung, salib, alkitab];
+    });
+
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_optimized_v1'; // Versi cache baru
+        const CACHE_KEY = 'home_data_optimized_v1'; 
         const cached = sessionStorage.getItem(CACHE_KEY);
         
         if (cached) {
@@ -69,19 +82,16 @@
             } catch (e) { console.error(e); }
         }
 
-        // Panggil Parallel biar cepat
         await Promise.all([
             fetchBannerData(),
-            fetchProductData(), // Fetch Produk (Limit)
-            fetchSubcategories(), // Fetch Menu Kategori (Lengkap)
+            fetchProductData(), 
+            fetchSubcategories(), 
             fetchBranches()
         ]);
     });
 
-    // [BARU] Ambil Menu Kategori Terpisah
     async function fetchSubcategories() {
         try {
-            // Kita coba ambil list kategori lengkap dari backend
             const res = await fetch(`${PUBLIC_API_URL}/products/subcategories`);
             if (res.ok) {
                 const data = await res.json();
@@ -90,12 +100,10 @@
             }
         } catch (e) {
             console.error("Gagal load kategori:", e);
-            // Fallback: Jika endpoint gagal, ambil dari produk yg ada (seperti logika lama)
             extractSubFromProducts();
         }
     }
 
-    // Fallback logic (jika API subcategories belum siap)
     function extractSubFromProducts() {
         const unique = new Set();
         products.forEach(s => {
@@ -110,21 +118,16 @@
 
     async function fetchProductData() {
         try {
-            // [OPTIMASI] Tambahkan limit=20 agar tidak load ribuan produk
-            // Tambahkan sort=newest agar yang tampil barang baru
             const res = await fetch(`${PUBLIC_API_URL}/products/?limit=20&sort=newest&t=${Date.now()}`);
             
             if (res.ok) {
                 let raw = await res.json();
-                // Support format Pagination (data) atau List biasa
                 let cleanData = [];
                 if (raw.data) cleanData = raw.data;
-                else if (Array.isArray(raw)) cleanData = raw; // Fallback jika backend kirim semua
+                else if (Array.isArray(raw)) cleanData = raw; 
                 
-                // Ambil 20 saja cukup untuk home
                 products = cleanData.slice(0, 20); 
                 
-                // Jika subkategori masih kosong (API gagal), ambil dari sini
                 if (allSubcategories.length === 0) extractSubFromProducts();
                 
                 updateCache();
@@ -216,77 +219,62 @@
     .custom-scrollbar::-webkit-scrollbar { width: 4px; }
     .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
-    
-    /* Animasi background hiasan untuk banner baru */
-    @keyframes blob {
-        0% { transform: translate(0px, 0px) scale(1); }
-        33% { transform: translate(30px, -50px) scale(1.1); }
-        66% { transform: translate(-20px, 20px) scale(0.9); }
-        100% { transform: translate(0px, 0px) scale(1); }
-    }
-    .animate-blob { animation: blob 7s infinite; }
-    .animation-delay-2000 { animation-delay: 2s; }
 </style>
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mt-4 mb-14" aria-label="Hero Utama">
+    <section class="w-full pt-10 pb-16 lg:pt-20 lg:pb-24" aria-label="Hero Utama">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="bg-gray-50/50 rounded-3xl overflow-hidden py-12 lg:py-16 relative shadow-sm border border-gray-100">
-                <div class="grid grid-cols-1 lg:grid-cols-2 gap-10 lg:gap-6 items-center px-6 md:px-12">
-                    
-                    <div class="order-1 lg:order-1 relative flex justify-center lg:justify-start gap-3 z-10 w-full">
-                        {#if loadingProducts && products.length === 0}
-                            <div class="flex flex-col gap-3 justify-end pb-6">
-                                <div class="w-32 h-32 md:w-48 md:h-48 bg-gray-200 animate-pulse rounded-2xl"></div>
-                                <div class="w-24 h-24 md:w-32 md:h-32 bg-gray-200 animate-pulse rounded-2xl ml-auto"></div>
-                            </div>
-                            <div class="flex items-center">
-                                <div class="w-48 h-48 md:w-72 md:h-72 bg-gray-200 animate-pulse rounded-2xl"></div>
-                            </div>
-                        {:else}
-                            <div class="flex flex-col gap-3 justify-end pb-6">
-                                <img 
-                                    src={products[0] ? optimizeUrl(products[0].image_1_url) : "https://placehold.co/400x400/e2e8f0/64748b?text=Produk+1"} 
-                                    alt="Produk Narwastu" 
-                                    class="w-32 h-32 md:w-48 md:h-48 object-cover rounded-2xl shadow-md hover:shadow-lg transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
-                                />
-                                <img 
-                                    src={products[1] ? optimizeUrl(products[1].image_1_url) : "https://placehold.co/300x300/e2e8f0/64748b?text=Produk+2"} 
-                                    alt="Produk Narwastu" 
-                                    class="w-24 h-24 md:w-32 md:h-32 object-cover rounded-2xl shadow-md ml-auto hover:shadow-lg transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
-                                />
-                            </div>
-
-                            <div class="flex items-center">
-                                <img 
-                                    src={products[2] ? optimizeUrl(products[2].image_1_url) : "https://placehold.co/600x600/e2e8f0/64748b?text=Produk+3"} 
-                                    alt="Produk Narwastu Utama" 
-                                    class="w-48 h-48 md:w-72 md:h-72 object-cover rounded-2xl shadow-xl hover:shadow-2xl transition-transform duration-500 hover:-translate-y-1 bg-white p-1"
-                                />
-                            </div>
-                        {/if}
-
-                        <div class="absolute -bottom-6 -left-6 w-32 h-32 bg-red-100 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob -z-10"></div>
-                        <div class="absolute -top-6 left-1/2 w-40 h-40 bg-gray-200 rounded-full mix-blend-multiply filter blur-2xl opacity-70 animate-blob animation-delay-2000 -z-10"></div>
+            <div class="grid grid-cols-1 lg:grid-cols-2 gap-12 items-center lg:px-8">
+                
+                <div class="order-2 lg:order-1 text-center lg:text-left flex flex-col justify-center">
+                    <h1 class="text-4xl md:text-5xl lg:text-[54px] font-extrabold text-gray-900 mb-4 tracking-tight leading-tight" style="font-family: 'Cinzel', serif;">
+                        NARWASTU <br/>
+                        <span class="text-[#C4161C]">TOKO KRISTIANI</span>
+                    </h1>
+                    <p class="text-sm md:text-base text-gray-600 mb-8 leading-relaxed max-w-md mx-auto lg:mx-0">
+                        Pusat pernak-pernik rohani dan perlengkapan ibadah berkualitas. Kami hadir untuk melayani umat dengan sepenuh hati demi menguatkan iman.
+                    </p>
+                    <div>
+                        <a href="/katalog" class="inline-flex items-center justify-center px-8 py-3.5 text-sm font-bold text-white transition-all duration-300 bg-[#C4161C] rounded-full shadow-lg hover:bg-red-800 hover:shadow-xl hover:-translate-y-0.5">
+                            Belanja Sekarang
+                        </a>
                     </div>
-
-                    <div class="order-2 lg:order-2 text-center lg:text-left flex flex-col justify-center relative z-10 pl-0 lg:pl-10">
-                        <h1 class="text-4xl md:text-5xl lg:text-[54px] font-extrabold text-gray-900 mb-4 tracking-tight leading-tight" style="font-family: 'Cinzel', serif;">
-                            Narwastu <br/>
-                            <span class="text-[#C4161C]">STORE</span>
-                        </h1>
-                        <p class="text-sm md:text-base text-gray-600 mb-8 leading-relaxed max-w-md mx-auto lg:mx-0">
-                            Pusat pernak-pernik rohani dan perlengkapan ibadah berkualitas. Kami hadir untuk melayani umat dengan sepenuh hati demi menguatkan iman.
-                        </p>
-                        <div>
-                            <a href="/katalog" class="inline-flex items-center justify-center px-8 py-3.5 text-sm font-bold text-white transition-all duration-300 bg-[#C4161C] rounded-full shadow-lg hover:bg-red-800 hover:shadow-xl hover:-translate-y-0.5">
-                                Belanja Sekarang
-                            </a>
-                        </div>
-                    </div>
-
                 </div>
+
+                <div class="order-1 lg:order-2 relative flex justify-center lg:justify-end gap-3 md:gap-5 z-10 w-full">
+                    {#if loadingProducts && products.length === 0}
+                        <div class="flex flex-col gap-3 md:gap-5 justify-end pb-4 md:pb-8">
+                            <div class="w-32 h-32 md:w-48 md:h-48 bg-gray-100 animate-pulse rounded-2xl md:rounded-3xl"></div>
+                            <div class="w-24 h-24 md:w-36 md:h-36 bg-gray-100 animate-pulse rounded-2xl md:rounded-3xl ml-auto"></div>
+                        </div>
+                        <div class="flex items-center">
+                            <div class="w-48 h-48 md:w-72 md:h-72 bg-gray-100 animate-pulse rounded-2xl md:rounded-3xl"></div>
+                        </div>
+                    {:else}
+                        <div class="flex flex-col gap-3 md:gap-5 justify-end pb-4 md:pb-8">
+                            <img 
+                                src={heroImages[0] ? optimizeUrl(heroImages[0].image_1_url) : "https://placehold.co/400x400/e2e8f0/64748b?text=Patung"} 
+                                alt={heroImages[0]?.name || "Patung"} 
+                                class="w-32 h-32 md:w-48 md:h-48 object-cover rounded-2xl md:rounded-3xl shadow-lg hover:shadow-xl transition-transform duration-500 hover:-translate-y-1"
+                            />
+                            <img 
+                                src={heroImages[1] ? optimizeUrl(heroImages[1].image_1_url) : "https://placehold.co/300x300/e2e8f0/64748b?text=Salib"} 
+                                alt={heroImages[1]?.name || "Salib"} 
+                                class="w-24 h-24 md:w-36 md:h-36 object-cover rounded-2xl md:rounded-3xl shadow-lg ml-auto hover:shadow-xl transition-transform duration-500 hover:-translate-y-1"
+                            />
+                        </div>
+
+                        <div class="flex items-center">
+                            <img 
+                                src={heroImages[2] ? optimizeUrl(heroImages[2].image_1_url) : "https://placehold.co/600x600/e2e8f0/64748b?text=Alkitab"} 
+                                alt={heroImages[2]?.name || "Alkitab"} 
+                                class="w-48 h-48 md:w-72 md:h-72 object-cover rounded-2xl md:rounded-3xl shadow-xl hover:shadow-2xl transition-transform duration-500 hover:-translate-y-1"
+                            />
+                        </div>
+                    {/if}
+                </div>
+
             </div>
         </div>
     </section>
@@ -476,10 +464,6 @@
     {/if}
 
 </div>
-
-
-
-
 
 
 <!-- <script>
