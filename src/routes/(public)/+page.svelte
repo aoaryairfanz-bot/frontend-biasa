@@ -1,4 +1,4 @@
-<script>
+<!-- <script>
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
@@ -463,10 +463,10 @@
         </div>
     {/if}
 
-</div>
+</div> -->
 
 
-<!-- <script>
+<script>
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
@@ -905,4 +905,4 @@
         </div>
     {/if}
 
-</div> -->
+</div>
