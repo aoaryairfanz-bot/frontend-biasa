@@ -1,9 +1,10 @@
-<!-- <script>
+<script>
     import { 
         SearchIcon, PlusIcon, FilterIcon, Edit2Icon, Trash2Icon, XIcon,
         GridIcon, ListIcon, ChevronLeftIcon, ChevronRightIcon, 
         FileTextIcon, LoaderIcon, BookIcon, BoxIcon, UploadCloudIcon,
-        ImageIcon, VideoIcon, CheckCircleIcon, AlertCircleIcon, PercentIcon
+        ImageIcon, VideoIcon, CheckCircleIcon, AlertCircleIcon, PercentIcon,
+        DownloadIcon, LayersIcon
     } from 'svelte-feather-icons';
     import { onMount } from 'svelte';
     import { PUBLIC_API_URL } from '$env/static/public';
@@ -14,19 +15,23 @@
     let discounts = $state([]); 
     let isLoadingData = $state(true); 
     
-    // Filter State
     let searchQuery = $state('');
     let activeCategory = $state('all'); 
     let viewMode = $state('list'); 
     
-    // Pagination State
     let currentPage = $state(1);
     let itemsPerPage = 20; 
     let totalItems = $state(0);
     let totalPages = $state(1);
 
-    let isImporting = $state(false);
-    let excelInput; 
+    let isExporting = $state(false); 
+    
+    // [BARU] State untuk Modal Tindakan Massal
+    let showBulkModal = $state(false);
+    let isProcessingBulk = $state(false);
+    let bulkActionType = $state('import_new'); 
+    let bulkFile = $state(null);
+    let bulkFileInput;
 
     const CACHE_KEY = 'admin_products_v10_svelte5'; 
 
@@ -60,7 +65,6 @@
             
             if (res.ok) {
                 const result = await res.json();
-                
                 if (result.data) {
                     products = result.data;
                     totalItems = result.total;
@@ -89,15 +93,11 @@
         } catch (e) {}
     }
 
-    // --- 3. DERIVED STATE ---
-    // [FIX] Jangan paksa Title Case di sini agar filter akurat
     let uniqueSubcategories = $derived(
-        products 
-        ? [...new Set(products.map(p => p.subcategory || ''))].filter(Boolean).sort()
-        : []
+        products ? [...new Set(products.map(p => p.subcategory || ''))].filter(Boolean).sort() : []
     );
 
-    // --- 4. FORM STATE ---
+    // --- 4. FORM STATE MANUAL ---
     let showModal = $state(false);
     let editingId = $state(null);
     let formData = $state({
@@ -113,26 +113,9 @@
     let activeUploads = $state([]); 
 
     // --- 5. HANDLERS ---
-    
-    function handleSearch() {
-        currentPage = 1;
-        fetchProducts();
-    }
+    function changeCategory(cat) { activeCategory = cat; currentPage = 1; fetchProducts(); }
+    function changePage(newPage) { if (newPage >= 1 && newPage <= totalPages) { currentPage = newPage; fetchProducts(); } }
 
-    function changeCategory(cat) {
-        activeCategory = cat;
-        currentPage = 1;
-        fetchProducts();
-    }
-
-    function changePage(newPage) {
-        if (newPage >= 1 && newPage <= totalPages) {
-            currentPage = newPage;
-            fetchProducts();
-        }
-    }
-
-    // --- FILE & PASTE HANDLING ---
     function handleFileChange(e, fieldName) {
         const file = e.target.files[0];
         if (file) {
@@ -144,7 +127,6 @@
 
     function handlePaste(e, fieldName) {
         const clipboardData = e.clipboardData || window.clipboardData;
-        
         if (clipboardData.files && clipboardData.files.length > 0) {
             const file = clipboardData.files[0];
             if (file.type.startsWith('image/')) {
@@ -155,7 +137,6 @@
                 return;
             }
         }
-        
         const pastedText = clipboardData.getData('text');
         if (pastedText && (pastedText.startsWith('http') || pastedText.match(/\.(jpeg|jpg|gif|png|webp)/))) {
             e.preventDefault();
@@ -166,60 +147,33 @@
     }
 
     function removeFile(fieldName) {
-        fileStorage[fieldName] = null;
-        previews[fieldName] = null;
-        formData[fieldName + '_url'] = '';
-        const input = document.getElementById(fieldName);
-        if(input) input.value = '';
+        fileStorage[fieldName] = null; previews[fieldName] = null; formData[fieldName + '_url'] = '';
+        const input = document.getElementById(fieldName); if(input) input.value = '';
     }
 
-    // --- MODAL ---
     function resetForm() {
         editingId = null; 
-        formData = { 
-            name: '', sku: '', category: 'nonbook', subcategory: '', 
-            price: '', strike_price: '', stock: '', description: '', discount_id: 0,
-            weight: '', length: '', width: '', height: '', diameter: '', 
-            isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: '',
-            foto_1_url: '', foto_2_url: '', foto_3_url: '' 
-        };
-        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
-        previews = { foto_1: null, foto_2: null, foto_3: null, video: null };
+        formData = { name: '', sku: '', category: 'nonbook', subcategory: '', price: '', strike_price: '', stock: '', description: '', discount_id: 0, weight: '', length: '', width: '', height: '', diameter: '', isbn: '', publisher: '', author: '', publish_year: '', pages: '', book_version: '', foto_1_url: '', foto_2_url: '', foto_3_url: '' };
+        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null }; previews = { foto_1: null, foto_2: null, foto_3: null, video: null };
     }
 
     function openAddModal() { resetForm(); showModal = true; }
     
-    // [FIX UTAMA] Jangan gunakan toTitleCase() saat load data edit!
-    // Biarkan data apa adanya dari database (Agar TUHAN YESUS tetap TUHAN YESUS)
     function openEditModal(product) {
         editingId = product.id;
-        formData = { 
-            ...product, 
-            name: product.name, // [FIX] Hapus toTitleCase()
-            subcategory: product.subcategory, // [FIX] Hapus toTitleCase()
-            discount_id: product.discount ? product.discount.id : 0,
-            foto_1_url: '', foto_2_url: '', foto_3_url: '' 
-        };
-        previews = { 
-            foto_1: product.image_1_url, foto_2: product.image_2_url, 
-            foto_3: product.image_3_url, video: product.video_url 
-        };
-        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null };
-        showModal = true;
+        formData = { ...product, name: product.name, subcategory: product.subcategory, discount_id: product.discount ? product.discount.id : 0, foto_1_url: '', foto_2_url: '', foto_3_url: '' };
+        previews = { foto_1: product.image_1_url, foto_2: product.image_2_url, foto_3: product.image_3_url, video: product.video_url };
+        fileStorage = { foto_1: null, foto_2: null, foto_3: null, video: null }; showModal = true;
     }
 
-    // --- UPLOAD ---
     function handleQueueUpload(e) {
         e.preventDefault();
-        // Snapshot Svelte 5 state
         const currentData = JSON.parse(JSON.stringify(formData)); 
         const currentFiles = { ...fileStorage }; 
         const isEdit = editingId; 
         const uploadId = Date.now(); 
         
-        showModal = false;
-        resetForm();
-        
+        showModal = false; resetForm();
         activeUploads = [...activeUploads, { id: uploadId, name: currentData.name, status: 'loading' }];
         processBackgroundUpload(uploadId, currentData, currentFiles, isEdit);
     }
@@ -228,90 +182,108 @@
         const token = localStorage.getItem("token");
         try {
             const dataToSend = new FormData();
-            const imageFields = ['foto_1', 'foto_2', 'foto_3'];
-            
-            for (const field of imageFields) {
-                if (filesPayload[field] instanceof File) {
-                    dataToSend.append(field, filesPayload[field]); 
-                } else if (dataPayload[field + '_url']) {
-                    dataToSend.append(field + '_url', dataPayload[field + '_url']);
-                }
+            for (const field of ['foto_1', 'foto_2', 'foto_3']) {
+                if (filesPayload[field] instanceof File) dataToSend.append(field, filesPayload[field]); 
+                else if (dataPayload[field + '_url']) dataToSend.append(field + '_url', dataPayload[field + '_url']);
             }
             if (filesPayload.video instanceof File) dataToSend.append('video', filesPayload.video);
 
-            // [FIX] Kirim data persis seperti inputan (Tanpa toTitleCase)
             dataToSend.append('name', dataPayload.name); 
             dataToSend.append('subcategory', dataPayload.subcategory || '');
 
             const keys = ['sku', 'category', 'price', 'stock', 'description', 'strike_price', 'weight', 'length', 'width', 'height', 'diameter', 'isbn', 'publisher', 'author', 'publish_year', 'pages', 'book_version'];
             keys.forEach(k => dataToSend.append(k, String(dataPayload[k] || '')));
 
-            let url = `${PUBLIC_API_URL}/products/`;
-            let method = "POST";
-            if (editId) { url = `${PUBLIC_API_URL}/products/${editId}`; method = "PUT"; }
-
-            const res = await fetch(url, { method, headers: { "Authorization": `Bearer ${token}` }, body: dataToSend });
+            let url = editId ? `${PUBLIC_API_URL}/products/${editId}` : `${PUBLIC_API_URL}/products/`;
+            const res = await fetch(url, { method: editId ? "PUT" : "POST", headers: { "Authorization": `Bearer ${token}` }, body: dataToSend });
 
             if (res.ok) {
                 const savedProduct = await res.json();
                 const prodId = editId || savedProduct.id;
-                
-                const discData = new FormData();
-                discData.append('discount_id', dataPayload.discount_id || 0);
+                const discData = new FormData(); discData.append('discount_id', dataPayload.discount_id || 0);
                 await fetch(`${PUBLIC_API_URL}/products/${prodId}/assign-discount`, { method: "PUT", headers: { "Authorization": `Bearer ${token}` }, body: discData });
 
-                updateUploadStatus(uploadId, 'success');
-                fetchProducts(); 
+                updateUploadStatus(uploadId, 'success'); fetchProducts(); 
             } else {
-                const err = await res.json();
-                updateUploadStatus(uploadId, 'error', err.detail || 'Gagal');
+                const err = await res.json(); updateUploadStatus(uploadId, 'error', err.detail || 'Gagal');
             }
-        } catch (error) {
-            updateUploadStatus(uploadId, 'error', 'Koneksi Error');
-        }
+        } catch (error) { updateUploadStatus(uploadId, 'error', 'Koneksi Error'); }
     }
 
     function updateUploadStatus(id, status, msg = '') {
         activeUploads = activeUploads.map(u => u.id === id ? { ...u, status, msg } : u);
-        if (status === 'success') {
-            setTimeout(() => {
-                activeUploads = activeUploads.filter(u => u.id !== id);
-            }, 4000);
+        if (status === 'success') setTimeout(() => activeUploads = activeUploads.filter(u => u.id !== id), 4000);
+    }
+
+    // --- [BARU] FUNGSI TINDAKAN MASSAL (EXCEL) ---
+    async function submitBulkAction(e) {
+        e.preventDefault();
+        if (!bulkFile) { alert("Pilih file Excel terlebih dahulu!"); return; }
+        
+        isProcessingBulk = true;
+        const token = localStorage.getItem("token");
+        const bulkData = new FormData();
+        bulkData.append('file', bulkFile);
+        
+        try {
+            let endpoint = `${PUBLIC_API_URL}/products/import`; // Default buat baru
+            
+            // Jika pilihannya update, arahkan ke rute baru kita
+            if (bulkActionType !== 'import_new') {
+                endpoint = `${PUBLIC_API_URL}/products/bulk-update`;
+                bulkData.append('action_type', bulkActionType);
+            }
+
+            const res = await fetch(endpoint, { 
+                method: "POST", 
+                headers: { "Authorization": `Bearer ${token}` }, 
+                body: bulkData 
+            });
+            
+            const result = await res.json();
+            if (res.ok) { 
+                alert(`✅ Sukses!\n${result.message || 'Selesai'}\n${result.errors?.length ? `Peringatan: Ada ${result.errors.length} baris gagal (Cek SKU).` : ''}`); 
+                showBulkModal = false;
+                bulkFile = null;
+                currentPage = 1; 
+                fetchProducts();
+            } else { 
+                alert("Gagal: " + (result.detail || result.message)); 
+            }
+        } catch { 
+            alert("Error koneksi saat memproses file."); 
+        } finally { 
+            isProcessingBulk = false; 
+            if (bulkFileInput) bulkFileInput.value = ''; 
         }
     }
 
     // --- LAINNYA ---
-    async function handleExcelUpload(e) {
-        const file = e.target.files[0];
-        if (!file) return;
-        isImporting = true;
+    async function handleExportExcel() {
+        isExporting = true;
         const token = localStorage.getItem("token");
-        const dataExcel = new FormData();
-        dataExcel.append('file', file);
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/import`, { method: "POST", headers: { "Authorization": `Bearer ${token}` }, body: dataExcel });
-            const result = await res.json();
-            if (res.ok) { 
-                alert(`✅ Sukses! ${result.message || 'Selesai'}`); 
-                currentPage = 1; 
-                fetchProducts();
-            } else { alert("Gagal: " + (result.detail || result.message)); }
-        } catch { alert("Error upload."); } finally { isImporting = false; if (excelInput) excelInput.value = ''; }
+            const res = await fetch(`${PUBLIC_API_URL}/products/export`, { method: "GET", headers: { "Authorization": `Bearer ${token}` }});
+            if (res.ok) {
+                const blob = await res.blob(); const url = window.URL.createObjectURL(blob);
+                const a = document.createElement('a'); a.href = url;
+                let filename = `Export_Produk_${new Date().toISOString().slice(0,10)}.xlsx`;
+                const disposition = res.headers.get('Content-Disposition');
+                if (disposition && disposition.includes('filename=')) filename = disposition.split('filename=')[1].replace(/"/g, '');
+                a.download = filename; document.body.appendChild(a); a.click(); a.remove(); window.URL.revokeObjectURL(url);
+            } else { alert("Gagal Export"); }
+        } catch (e) { alert("Error koneksi"); } finally { isExporting = false; }
     }
 
     async function handleDelete(id, name) {
         if (!confirm(`Hapus "${name}"?`)) return;
         const token = localStorage.getItem("token");
-        try {
-            await fetch(`${PUBLIC_API_URL}/products/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }); 
-            fetchProducts();
-        } catch (e) { alert("Error koneksi"); }
+        try { await fetch(`${PUBLIC_API_URL}/products/${id}`, { method: "DELETE", headers: { "Authorization": `Bearer ${token}` } }); fetchProducts(); } 
+        catch (e) { alert("Error koneksi"); }
     }
 
     // --- HELPERS ---
     function formatRupiah(num) { return new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 }).format(num); }
-    // [FIX] Helper toTitleCase tetap ada untuk tampilan tabel, tapi TIDAK dipakai di form edit
-    function toTitleCase(str) { return str?.toLowerCase().replace(/(?:^|\s)\w/g, m => m.toUpperCase()) || ''; }
     function getStockColor(stock) { return stock === 0 ? 'text-red-600 bg-red-100' : stock < 5 ? 'text-orange-600 bg-orange-100' : 'text-green-600 bg-green-100'; }
 </script>
 
@@ -320,14 +292,9 @@
     <div class="fixed bottom-6 right-6 z-[60] flex flex-col gap-2 w-80">
         {#each activeUploads as upload (upload.id)}
             <div class="bg-white p-3 rounded-xl shadow-2xl border border-gray-100 flex items-center gap-3 animate-in slide-in-from-right duration-300">
-                {#if upload.status === 'loading'}
-                    <LoaderIcon size="20" class="text-blue-500 animate-spin flex-shrink-0"/>
-                    <div class="flex-1 min-w-0"><div class="text-xs font-bold text-gray-500">Menyimpan...</div><div class="text-sm font-bold text-gray-800 truncate">{upload.name}</div></div>
-                {:else if upload.status === 'success'}
-                    <CheckCircleIcon size="20" class="text-green-500 flex-shrink-0"/><div class="flex-1 min-w-0"><div class="text-xs font-bold text-green-600">Berhasil!</div><div class="text-sm font-bold text-gray-800 truncate">{upload.name}</div></div>
-                {:else}
-                    <AlertCircleIcon size="20" class="text-red-500 flex-shrink-0"/><div class="flex-1 min-w-0"><div class="text-xs font-bold text-red-600">Gagal</div><div class="text-xs text-gray-500 truncate">{upload.msg || 'Error'}</div></div><button onclick={() => activeUploads = activeUploads.filter(u => u.id !== upload.id)} class="text-gray-400 hover:text-gray-600"><XIcon size="14"/></button>
-                {/if}
+                {#if upload.status === 'loading'} <LoaderIcon size="20" class="text-blue-500 animate-spin flex-shrink-0"/><div class="flex-1 min-w-0"><div class="text-xs font-bold text-gray-500">Menyimpan...</div><div class="text-sm font-bold text-gray-800 truncate">{upload.name}</div></div>
+                {:else if upload.status === 'success'} <CheckCircleIcon size="20" class="text-green-500 flex-shrink-0"/><div class="flex-1 min-w-0"><div class="text-xs font-bold text-green-600">Berhasil!</div><div class="text-sm font-bold text-gray-800 truncate">{upload.name}</div></div>
+                {:else} <AlertCircleIcon size="20" class="text-red-500 flex-shrink-0"/><div class="flex-1 min-w-0"><div class="text-xs font-bold text-red-600">Gagal</div><div class="text-xs text-gray-500 truncate">{upload.msg || 'Error'}</div></div><button onclick={() => activeUploads = activeUploads.filter(u => u.id !== upload.id)} class="text-gray-400 hover:text-gray-600"><XIcon size="14"/></button>{/if}
             </div>
         {/each}
     </div>
@@ -340,10 +307,15 @@
                     <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"><SearchIcon size="16" /></span>
                     <input type="text" bind:value={searchQuery} onchange={() => {currentPage=1; fetchProducts()}} placeholder="Cari Nama / SKU..." class="w-full pl-9 pr-3 py-2 bg-gray-50 border-none rounded-lg text-sm focus:ring-1 focus:ring-blue-200 outline-none transition" />
                 </div>
-                <input type="file" bind:this={excelInput} onchange={handleExcelUpload} accept=".xlsx, .xls" hidden />
-                <button onclick={() => excelInput.click()} disabled={isImporting} class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition">
-                    {#if isImporting} <LoaderIcon size="16" class="animate-spin"/> {:else} <FileTextIcon size="16" /> <span class="hidden md:inline">Import</span> {/if}
+                
+                <button onclick={() => showBulkModal = true} class="bg-gray-100 hover:bg-gray-200 text-gray-800 px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                    <LayersIcon size="16" /> <span class="hidden md:inline">Tindakan Massal</span>
                 </button>
+                
+                <button onclick={handleExportExcel} disabled={isExporting} class="bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition">
+                    {#if isExporting} <LoaderIcon size="16" class="animate-spin"/> {:else} <DownloadIcon size="16" /> <span class="hidden md:inline">Export</span> {/if}
+                </button>
+                
                 <button onclick={openAddModal} class="bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded-lg text-sm font-bold flex items-center gap-2 transition">
                     <PlusIcon size="16" /> <span class="hidden md:inline">Baru</span>
                 </button>
@@ -436,8 +408,62 @@
     {/if}
 </div>
 
+{#if showBulkModal}
+<div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
+    <div class="bg-white rounded-3xl w-full max-w-md shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
+        <div class="p-5 border-b border-gray-100 flex justify-between items-center bg-gray-50">
+            <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2"><LayersIcon size="18" class="text-blue-600"/> Tindakan Massal</h3>
+            <button onclick={() => showBulkModal = false} class="bg-white p-1 rounded-full text-gray-400 hover:text-red-500 transition shadow-sm"><XIcon size="18"/></button>
+        </div>
+        <form onsubmit={submitBulkAction} class="p-6 space-y-5">
+            <div>
+                <label class="block text-xs font-bold text-gray-600 mb-2">Pilih Jenis Tindakan <span class="text-red-500">*</span></label>
+                <select bind:value={bulkActionType} class="w-full px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none transition text-sm font-bold text-gray-800 appearance-none">
+                    <option value="import_new">✨ Buat Produk Baru (Import)</option>
+                    <option value="update_all">🔄 Update Semua Atribut (By SKU)</option>
+                    <option value="update_price">💰 Update Harga Saja (By SKU)</option>
+                    <option value="update_stock">📦 Update Stok Saja (By SKU)</option>
+                </select>
+                <p class="text-[10px] text-gray-400 mt-2 italic">*Pastikan kolom SKU di file Excel sesuai dengan data di sistem.</p>
+            </div>
+            
+            <div class="border-t border-gray-100 pt-4">
+                <label class="block text-xs font-bold text-gray-600 mb-2">Upload File Excel (.xlsx / .xls) <span class="text-red-500">*</span></label>
+                <div class="relative border-2 border-dashed {bulkFile ? 'border-green-400 bg-green-50' : 'border-gray-300 bg-white'} rounded-xl p-6 flex flex-col items-center justify-center hover:border-blue-400 transition cursor-pointer group">
+                    <input 
+                        type="file" 
+                        bind:this={bulkFileInput}
+                        accept=".xlsx, .xls" 
+                        onchange={(e) => bulkFile = e.target.files[0]}
+                        class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" 
+                        required
+                    />
+                    {#if bulkFile}
+                        <CheckCircleIcon size="24" class="text-green-500 mb-2"/>
+                        <span class="text-xs font-bold text-green-700 text-center truncate w-full">{bulkFile.name}</span>
+                    {:else}
+                        <UploadCloudIcon size="24" class="text-gray-400 mb-2 group-hover:text-blue-500 transition"/>
+                        <span class="text-xs font-bold text-gray-600">Klik atau Drag file ke sini</span>
+                    {/if}
+                </div>
+            </div>
+            
+            <div class="pt-2">
+                <button type="submit" disabled={isProcessingBulk || !bulkFile} class="w-full bg-blue-600 disabled:bg-blue-300 text-white font-bold py-3 rounded-xl hover:bg-blue-700 transition shadow-lg shadow-blue-200 flex justify-center items-center gap-2">
+                    {#if isProcessingBulk}
+                        <LoaderIcon size="18" class="animate-spin"/> Memproses...
+                    {:else}
+                        <CheckCircleIcon size="18"/> Jalankan Proses Massal
+                    {/if}
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+{/if}
+
 {#if showModal}
-<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity overflow-y-auto">
+<div class="fixed inset-0 z-[50] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm transition-opacity overflow-y-auto">
     <div class="bg-white rounded-2xl w-full max-w-4xl shadow-2xl overflow-hidden animate-in fade-in zoom-in duration-200 my-4 flex flex-col max-h-[90vh]">
         <div class="flex justify-between items-center px-6 py-4 border-b border-gray-100 bg-gray-50 shrink-0">
             <h3 class="text-lg font-bold text-gray-800">{editingId ? 'Edit Produk' : 'Tambah Produk Baru'}</h3>
@@ -513,6 +539,7 @@
                         
                         <div class="mb-3">
                             <label class="block text-xs font-bold text-gray-700 mb-1">Foto Utama</label>
+                            
                             <div 
                                 role="button" 
                                 tabindex="0" 
@@ -577,9 +604,9 @@
         </div>
     </div>
 </div>
-{/if} -->
+{/if}
 
-<script>
+<!-- <script>
     import { 
         SearchIcon, PlusIcon, FilterIcon, Edit2Icon, Trash2Icon, XIcon,
         GridIcon, ListIcon, ChevronLeftIcon, ChevronRightIcon, 
@@ -1206,4 +1233,4 @@
         </div>
     </div>
 </div>
-{/if}
+{/if} -->
