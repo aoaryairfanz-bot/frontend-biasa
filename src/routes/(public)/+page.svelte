@@ -191,10 +191,9 @@
         <div class="container mx-auto px-4 max-w-[1200px]">
             <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Kategori Pilihan</h3>
             
-            <div class="flex md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:pb-0">
+            <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative flex-shrink-0 w-[240px] md:w-auto aspect-[16/9] rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow snap-start">
-                        <div class="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors z-10 duration-500"></div>
+                    <a href={cat.link} class="group relative block w-full aspect-square rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         
                         <img 
                             src={cat.imageUrl} 
@@ -204,8 +203,10 @@
                             decoding="async"
                         />
                         
-                        <div class="absolute inset-0 z-20 flex items-center justify-center p-2">
-                            <span class="text-white text-sm md:text-sm font-extrabold tracking-wide uppercase text-center drop-shadow-lg shadow-black">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-black/90 transition-colors z-10 duration-500"></div>
+                        
+                        <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center p-1.5 pb-2 md:p-3 md:pb-4">
+                            <span class="text-white text-[9px] sm:text-xs md:text-sm font-extrabold tracking-wide text-center drop-shadow-md leading-tight">
                                 {cat.label}
                             </span>
                         </div>
