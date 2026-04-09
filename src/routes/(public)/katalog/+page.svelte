@@ -35,7 +35,7 @@
         if (searchTerm !== urlSearch) searchTerm = urlSearch;
     });
 
-    // --- FETCH DATA (CLIENT SIDE - AMBIL SEMUA) ---
+    // --- FETCH DATA (CLIENT SIDE) ---
     onMount(async () => {
         const CACHE_KEY = 'katalog_products_v8_final'; 
         
@@ -125,7 +125,6 @@
             );
         }
 
-        // Filter Kategori Utama
         if (filter !== 'all') {
             result = result.filter(item => {
                 const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
@@ -139,7 +138,6 @@
             });
         }
 
-        // Filter Subkategori
         if (activeSubCategory !== 'all') {
             result = result.filter(p => 
                 p.subcategory && p.subcategory.toLowerCase() === activeSubCategory.toLowerCase()
@@ -180,7 +178,7 @@
 
     function changeCategory(id) {
         filter = id;
-        activeSubCategory = 'all'; // Reset subkategori saat kategori utama ganti
+        activeSubCategory = 'all'; 
         currentPage = 1; 
         updateUrl({ category: id, page: 1 });
     }
@@ -284,54 +282,59 @@
                     {/if}
                 </div>
 
-                <div class="flex flex-wrap lg:flex-nowrap items-center justify-start lg:justify-end w-full lg:w-auto gap-2 md:gap-3">
+                <div class="flex flex-col md:flex-row items-center justify-start lg:justify-end w-full lg:w-auto gap-3">
                     
                     {#if availableSubcategories.length > 0}
-                    <div class="relative flex items-center gap-1 group cursor-pointer bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:border-gray-300 transition flex-1 md:flex-none" in:fade>
-                        <span class="text-gray-400 hidden md:inline">Tipe:</span>
+                    <div class="relative w-full md:w-40" in:fade>
                         <select 
                             bind:value={activeSubCategory}
                             onchange={() => currentPage = 1}
-                            class="custom-select bg-transparent font-bold text-gray-700 outline-none cursor-pointer text-[10px] md:text-xs pr-4 z-10 w-full"
+                            class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C4161C] focus:border-[#C4161C] font-semibold text-[11px] md:text-xs cursor-pointer transition-all hover:border-gray-300"
                         >
                             <option value="all">Semua Tipe</option>
                             {#each availableSubcategories as sub}
                                 <option value={sub}>{sub}</option>
                             {/each}
                         </select>
-                        <ChevronDownIcon size="14" class="absolute right-2 text-gray-400 pointer-events-none"/>
+                        <ChevronDownIcon size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
                     </div>
                     {/if}
 
-                    <div class="flex items-center justify-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 focus-within:border-gray-300 transition flex-1 md:flex-none">
-                        <span class="text-gray-400 font-medium">Rp</span>
-                        <input 
-                            type="number" 
-                            bind:value={minPrice} 
-                            placeholder="Min" 
-                            class="bg-transparent w-14 md:w-20 outline-none text-gray-700 font-bold text-center placeholder-gray-300"
-                        >
-                        <span class="text-gray-300">-</span>
-                        <input 
-                            type="number" 
-                            bind:value={maxPrice} 
-                            placeholder="Max" 
-                            class="bg-transparent w-14 md:w-20 outline-none text-gray-700 font-bold text-center placeholder-gray-300"
-                        >
+                    <div class="flex items-center gap-2 w-full md:w-auto">
+                        <div class="relative w-full md:w-32">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-xs">Rp</span>
+                            <input 
+                                type="number" 
+                                value={minPrice || ''} 
+                                onchange={(e) => minPrice = e.target.value ? Number(e.target.value) : null}
+                                placeholder="Min" 
+                                class="w-full bg-white border border-gray-200 text-gray-700 py-2.5 pl-8 pr-3 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C4161C] focus:border-[#C4161C] font-semibold text-[11px] md:text-xs transition-all hover:border-gray-300 placeholder-gray-300"
+                            >
+                        </div>
+                        <span class="text-gray-300 font-bold">-</span>
+                        <div class="relative w-full md:w-32">
+                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-xs">Rp</span>
+                            <input 
+                                type="number" 
+                                value={maxPrice || ''} 
+                                onchange={(e) => maxPrice = e.target.value ? Number(e.target.value) : null}
+                                placeholder="Max" 
+                                class="w-full bg-white border border-gray-200 text-gray-700 py-2.5 pl-8 pr-3 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C4161C] focus:border-[#C4161C] font-semibold text-[11px] md:text-xs transition-all hover:border-gray-300 placeholder-gray-300"
+                            >
+                        </div>
                     </div>
 
-                    <div class="relative flex items-center gap-1 group cursor-pointer bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:border-gray-300 transition flex-1 md:flex-none">
-                        <span class="text-gray-400 hidden md:inline">Urutkan:</span>
+                    <div class="relative w-full md:w-44">
                         <select 
                             bind:value={sortBy} 
-                            class="custom-select bg-transparent font-bold text-gray-700 outline-none cursor-pointer text-[10px] md:text-xs pr-4 z-10 w-full"
+                            class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:outline-none focus:ring-2 focus:ring-[#C4161C] focus:border-[#C4161C] font-semibold text-[11px] md:text-xs cursor-pointer transition-all hover:border-gray-300"
                         >
-                            <option value="newest">Terbaru</option>
+                            <option value="newest">Urutkan: Terbaru</option>
                             <option value="price_asc">Termurah</option>
                             <option value="price_desc">Termahal</option>
                             <option value="oldest">Terlama</option>
                         </select>
-                        <ChevronDownIcon size="14" class="absolute right-2 text-gray-400 pointer-events-none"/>
+                        <ChevronDownIcon size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
                     </div>
 
                 </div>
