@@ -46,7 +46,7 @@
     // [BARU] Data Kategori Gambar Statis Baginda
     const mainCategories = [
         { id: 'rohani', label: 'Perlengkapan Rohani', link: '/katalog?category=rohani', imageUrl: 'https://images.unsplash.com/photo-1601142634808-38923eb7c560?auto=format&fit=crop&w=500&q=80' },
-        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://images.unsplash.com/photo-1544431872-358055ee1a46?auto=format&fit=crop&w=500&q=80' },
+        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775717412/4373eeb1-dc06-4c30-9f18-324e6a4232d8.png' },
         { id: 'buku', label: 'Buku', link: '/katalog?category=buku', imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=500&q=80' },
         { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/katalog?search=sekolah%20minggu', imageUrl: 'https://images.unsplash.com/photo-1519340333755-56e9c1d04579?auto=format&fit=crop&w=500&q=80' }
     ];
@@ -191,9 +191,9 @@
         <div class="container mx-auto px-4 max-w-[1200px]">
             <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Kategori Pilihan</h3>
             
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+            <div class="flex md:grid md:grid-cols-4 gap-3 md:gap-4 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0 md:pb-0">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[16/9] rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <a href={cat.link} class="group relative flex-shrink-0 w-[240px] md:w-auto aspect-[16/9] rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow snap-start">
                         <div class="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors z-10 duration-500"></div>
                         
                         <img 
@@ -205,7 +205,7 @@
                         />
                         
                         <div class="absolute inset-0 z-20 flex items-center justify-center p-2">
-                            <span class="text-white text-xs md:text-sm font-bold tracking-wide uppercase text-center drop-shadow-md">
+                            <span class="text-white text-sm md:text-sm font-extrabold tracking-wide uppercase text-center drop-shadow-lg shadow-black">
                                 {cat.label}
                             </span>
                         </div>
