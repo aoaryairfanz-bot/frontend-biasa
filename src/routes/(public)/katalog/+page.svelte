@@ -310,7 +310,7 @@
                     {#if availableSubcategories.length > 0}
                     <div class="relative w-40" in:fade>
                         <select bind:value={activeSubCategory} onchange={() => currentPage = 1} class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs cursor-pointer hover:border-gray-300">
-                            <option value="all">Semua Tipe</option>
+                            <option value="all">Semua Kategori</option>
                             {#each availableSubcategories as sub} <option value={sub}>{sub}</option> {/each}
                         </select>
                         <ChevronDownIcon size="14" class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 pointer-events-none"/>
