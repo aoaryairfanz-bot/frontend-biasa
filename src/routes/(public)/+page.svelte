@@ -164,7 +164,7 @@
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mt-4 mb-8" aria-label="Promo Utama">
+    <section class="w-full mt-4 mb-10" aria-label="Promo Utama">
         <div class="container mx-auto px-4 max-w-[1200px]">
             {#if loadingBanner && displayBanners.length === 0}
                 <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-2xl bg-gray-100 animate-pulse"></div>
@@ -184,6 +184,17 @@
                     </div>
                 </div>
             {/if}
+        </div>
+    </section>
+
+    <section class="w-full mb-12 text-center" aria-label="Sambutan">
+        <div class="container mx-auto px-4 max-w-[800px]">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
+                Narwastu Toko Kristiani
+            </h1>
+            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
+                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
+            </p>
         </div>
     </section>
 
@@ -215,17 +226,6 @@
             </div>
         </div>
     </nav>
-
-    <section class="w-full mb-12 text-center" aria-label="Sambutan">
-        <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
-                Narwastu Toko Kristiani
-            </h1>
-            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
-                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
-            </p>
-        </div>
-    </section>
 
     {#snippet productCard(item)}
         <div class="group relative flex flex-col h-full cursor-pointer">
