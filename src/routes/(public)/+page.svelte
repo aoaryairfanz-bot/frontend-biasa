@@ -193,7 +193,7 @@
             
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[16/9] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         
                         <img 
                             src={cat.imageUrl} 
