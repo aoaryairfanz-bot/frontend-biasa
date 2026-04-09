@@ -4,12 +4,10 @@
     import { browser } from '$app/environment';
     import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon, ChevronRightIcon, TagIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
-    import kategoriImg from '$lib/assets/kategori.png';
 
     // --- STATE ---
     let banners = $state([]);
     let products = $state([]); 
-    let allSubcategories = $state([]); 
     
     // --- STATE CABANG & MODAL BELI ---
     let branches = $state([]); 
@@ -26,7 +24,6 @@
 
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
-    const subcategories = $derived(allSubcategories);
     const latestProducts = $derived(products.slice(0, 12));
 
     const bestSellers = $derived.by(() => {
@@ -46,9 +43,17 @@
             .slice(0, 12);
     });
 
+    // [BARU] Data Kategori Gambar Statis Baginda
+    const mainCategories = [
+        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/katalog?category=rohani', imageUrl: 'https://images.unsplash.com/photo-1601142634808-38923eb7c560?auto=format&fit=crop&w=500&q=80' },
+        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://images.unsplash.com/photo-1544431872-358055ee1a46?auto=format&fit=crop&w=500&q=80' },
+        { id: 'buku', label: 'Buku', link: '/katalog?category=buku', imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=500&q=80' },
+        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/katalog?search=sekolah%20minggu', imageUrl: 'https://images.unsplash.com/photo-1519340333755-56e9c1d04579?auto=format&fit=crop&w=500&q=80' }
+    ];
+
     // --- FETCH DATA ---
     onMount(async () => {
-        const CACHE_KEY = 'home_data_optimized_v1';
+        const CACHE_KEY = 'home_data_optimized_v2';
         const cached = sessionStorage.getItem(CACHE_KEY);
         
         if (cached) {
@@ -57,43 +62,15 @@
                 if (data.banners) { banners = data.banners; loadingBanner = false; }
                 if (data.products) { products = data.products; loadingProducts = false; }
                 if (data.branches) { branches = data.branches; }
-                if (data.subs) { allSubcategories = data.subs; }
             } catch (e) { console.error(e); }
         }
 
         await Promise.all([
             fetchBannerData(),
             fetchProductData(), 
-            fetchSubcategories(), 
             fetchBranches()
         ]);
     });
-
-    async function fetchSubcategories() {
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/subcategories`);
-            if (res.ok) {
-                const data = await res.json();
-                allSubcategories = data;
-                updateCache();
-            }
-        } catch (e) {
-            console.error("Gagal load kategori:", e);
-            extractSubFromProducts();
-        }
-    }
-
-    function extractSubFromProducts() {
-        const unique = new Set();
-        products.forEach(s => {
-            const isBook = s.category === 'book' || (s.name && s.name.toLowerCase().includes('alkitab'));
-            if (!isBook) {
-                const cat = s.subcategory || s.category;
-                if (cat && cat !== 'nonbook') unique.add(cat.trim());
-            }
-        });
-        allSubcategories = Array.from(unique).sort();
-    }
 
     async function fetchProductData() {
         try {
@@ -105,7 +82,6 @@
                 else if (Array.isArray(raw)) cleanData = raw; 
                 
                 products = cleanData.slice(0, 20); 
-                if (allSubcategories.length === 0) extractSubFromProducts();
                 updateCache();
             } else { errorMsg = "Gagal memuat produk."; }
         } catch (e) { errorMsg = "Kesalahan jaringan."; }
@@ -140,8 +116,8 @@
 
     function updateCache() {
         if (banners.length > 0 && products.length > 0) {
-            sessionStorage.setItem('home_data_optimized_v1', JSON.stringify({ 
-                banners, products, branches, subs: allSubcategories 
+            sessionStorage.setItem('home_data_optimized_v2', JSON.stringify({ 
+                banners, products, branches
             }));
         }
     }
@@ -156,11 +132,6 @@
     }
 
     // --- ACTIONS ---
-    function buyNow(product) {
-        selectedProduct = product;
-        showBranchModal = true;
-    }
-
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
@@ -193,7 +164,7 @@
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mt-4 mb-10" aria-label="Promo Utama">
+    <section class="w-full mt-4 mb-8" aria-label="Promo Utama">
         <div class="container mx-auto px-4 max-w-[1200px]">
             {#if loadingBanner && displayBanners.length === 0}
                 <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-2xl bg-gray-100 animate-pulse"></div>
@@ -216,31 +187,37 @@
         </div>
     </section>
 
-    <nav class="w-full mb-10" aria-label="Kategori">
+    <nav class="w-full mb-12" aria-label="Kategori Gambar">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="flex items-center justify-between mb-4">
-                <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider">Kategori Pilihan</h3>
-            </div>
-            <div class="flex gap-3 overflow-x-auto pb-2 snap-x scrollbar-hide">
-                {#if loadingProducts && subcategories.length === 0}
-                    {#each Array(6) as _}<div class="w-24 h-10 bg-gray-100 rounded-full animate-pulse shrink-0"></div>{/each}
-                {:else}
-                    <a href="/katalog" class="px-5 py-2.5 rounded-full bg-gray-900 text-white text-xs font-bold whitespace-nowrap shrink-0 hover:bg-[#C4161C] transition-colors shadow-sm snap-start">
-                        Semua Produk
+            <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Kategori Pilihan</h3>
+            
+            <div class="grid grid-cols-2 md:grid-cols-4 gap-3 md:gap-4">
+                {#each mainCategories as cat}
+                    <a href={cat.link} class="group relative block w-full aspect-[16/9] rounded-xl md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        <div class="absolute inset-0 bg-black/30 group-hover:bg-black/10 transition-colors z-10 duration-500"></div>
+                        
+                        <img 
+                            src={cat.imageUrl} 
+                            alt={cat.label} 
+                            class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" 
+                            loading="lazy" 
+                            decoding="async"
+                        />
+                        
+                        <div class="absolute inset-0 z-20 flex items-center justify-center p-2">
+                            <span class="text-white text-xs md:text-sm font-bold tracking-wide uppercase text-center drop-shadow-md">
+                                {cat.label}
+                            </span>
+                        </div>
                     </a>
-                    {#each subcategories as sub}
-                        <a href="/katalog?search={sub}" class="px-5 py-2.5 rounded-full bg-white border border-gray-200 text-gray-700 text-xs font-semibold whitespace-nowrap shrink-0 hover:border-[#C4161C] hover:text-[#C4161C] hover:shadow-sm transition-all snap-start">
-                            {sub}
-                        </a>
-                    {/each}
-                {/if}
+                {/each}
             </div>
         </div>
     </nav>
 
     <section class="w-full mb-12 text-center" aria-label="Sambutan">
         <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-[#C4161C] mb-3">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
                 Narwastu Toko Kristiani
             </h1>
             <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
@@ -248,6 +225,7 @@
             </p>
         </div>
     </section>
+
     {#snippet productCard(item)}
         <div class="group relative flex flex-col h-full cursor-pointer">
             <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
