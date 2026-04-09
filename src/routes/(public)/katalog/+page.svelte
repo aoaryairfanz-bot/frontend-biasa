@@ -17,7 +17,7 @@
     let searchTerm = $state("");
     let sortBy = $state('newest');
     
-    // [BARU] State untuk Filter Harga
+    // State untuk Filter Harga
     let minPrice = $state(null);
     let maxPrice = $state(null);
     
@@ -39,7 +39,6 @@
     onMount(async () => {
         const CACHE_KEY = 'katalog_products_v8_final'; 
         
-        // 1. Cek Cache
         try {
             const cachedData = sessionStorage.getItem(CACHE_KEY);
             if (cachedData) {
@@ -51,7 +50,6 @@
             }
         } catch (e) { console.error("Cache error", e); }
 
-        // 2. Fetch API
         try {
             const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`); 
             if (res.ok) {
@@ -76,7 +74,7 @@
     const optimizeUrl = (url) => url; 
 
     const filterOptions = [
-        { id: 'all', label: 'Semua Kategori' },
+        { id: 'all', label: 'Semua' },
         { id: 'rohani', label: 'Perlengkapan Rohani' },
         { id: 'alkitab', label: 'Alkitab' },
         { id: 'buku', label: 'Buku' }
@@ -85,7 +83,7 @@
     const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
     const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'novena'];
 
-    // --- LOGIC 1: SUBKATEGORI (DARI SEMUA DATA) ---
+    // --- LOGIC 1: SUBKATEGORI DINAMIS ---
     let availableSubcategories = $derived.by(() => {
         if (!products || products.length === 0) return [];
         
@@ -127,6 +125,7 @@
             );
         }
 
+        // Filter Kategori Utama
         if (filter !== 'all') {
             result = result.filter(item => {
                 const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
@@ -140,17 +139,18 @@
             });
         }
 
+        // Filter Subkategori
         if (activeSubCategory !== 'all') {
             result = result.filter(p => 
                 p.subcategory && p.subcategory.toLowerCase() === activeSubCategory.toLowerCase()
             );
         }
 
-        // D. Filter Harga
+        // Filter Harga
         if (minPrice) result = result.filter(p => (p.final_price || p.price || 0) >= minPrice);
         if (maxPrice) result = result.filter(p => (p.final_price || p.price || 0) <= maxPrice);
 
-        // E. Sorting
+        // Sorting
         if (sortBy === 'price_asc') {
             result.sort((a, b) => (a.final_price || 0) - (b.final_price || 0));
         } else if (sortBy === 'price_desc') {
@@ -180,14 +180,9 @@
 
     function changeCategory(id) {
         filter = id;
-        activeSubCategory = 'all'; 
+        activeSubCategory = 'all'; // Reset subkategori saat kategori utama ganti
         currentPage = 1; 
         updateUrl({ category: id, page: 1 });
-    }
-
-    function changeSubCategory(sub) {
-        activeSubCategory = sub;
-        currentPage = 1;
     }
 
     function changePage(newPage) {
@@ -204,6 +199,7 @@
         minPrice = null; 
         maxPrice = null; 
         filter = 'all';
+        activeSubCategory = 'all';
         goto(url.toString());
     }
 
@@ -243,7 +239,23 @@
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8" style="font-family: 'Poppins', sans-serif !important;">
     
-    <div class="container mx-auto px-4 max-w-[1200px]">
+    <div class="container mx-auto px-4 max-w-[1200px] mb-4 bg-white sticky top-0 z-30 pt-2 pb-1 border-b border-gray-50 md:border-none shadow-sm md:shadow-none transition-all">
+        <div class="flex justify-center w-full mb-2">
+            <div class="flex gap-4 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-1 items-center snap-x">
+                {#each filterOptions as opt}
+                <button 
+                    onclick={() => changeCategory(opt.id)}
+                    class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-[3px] whitespace-nowrap flex-shrink-0 px-2 snap-start
+                    {filter === opt.id ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
+                >
+                    {opt.label}
+                </button>
+                {/each}
+            </div>
+        </div>
+    </div>
+
+    <div class="container mx-auto px-4 max-w-[1200px] pt-4">
         
         {#if isLoading && products.length === 0}
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-10">
@@ -258,7 +270,7 @@
 
         {:else if visibleProducts.length > 0}
             
-            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-4 gap-4 text-[10px] md:text-xs text-gray-500 pb-4 border-b border-gray-50 w-full">
+            <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-8 gap-4 text-[10px] md:text-xs text-gray-500 pb-4 border-b border-gray-50 w-full">
                 
                 <div class="flex items-center gap-1.5 min-w-0 overflow-hidden w-full lg:w-auto">
                     {#if searchTerm}
@@ -274,19 +286,22 @@
 
                 <div class="flex flex-wrap lg:flex-nowrap items-center justify-start lg:justify-end w-full lg:w-auto gap-2 md:gap-3">
                     
-                    <div class="relative flex items-center gap-1 group cursor-pointer bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:border-gray-300 transition flex-1 md:flex-none">
-                        <span class="text-gray-400 hidden md:inline">Kategori:</span>
+                    {#if availableSubcategories.length > 0}
+                    <div class="relative flex items-center gap-1 group cursor-pointer bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 hover:border-gray-300 transition flex-1 md:flex-none" in:fade>
+                        <span class="text-gray-400 hidden md:inline">Tipe:</span>
                         <select 
-                            value={filter} 
-                            onchange={(e) => changeCategory(e.target.value)}
+                            bind:value={activeSubCategory}
+                            onchange={() => currentPage = 1}
                             class="custom-select bg-transparent font-bold text-gray-700 outline-none cursor-pointer text-[10px] md:text-xs pr-4 z-10 w-full"
                         >
-                            {#each filterOptions as opt}
-                                <option value={opt.id}>{opt.label}</option>
+                            <option value="all">Semua Tipe</option>
+                            {#each availableSubcategories as sub}
+                                <option value={sub}>{sub}</option>
                             {/each}
                         </select>
                         <ChevronDownIcon size="14" class="absolute right-2 text-gray-400 pointer-events-none"/>
                     </div>
+                    {/if}
 
                     <div class="flex items-center justify-center gap-1.5 bg-gray-50 px-3 py-1.5 rounded-full border border-gray-100 focus-within:border-gray-300 transition flex-1 md:flex-none">
                         <span class="text-gray-400 font-medium">Rp</span>
@@ -321,27 +336,6 @@
 
                 </div>
             </div>
-
-            {#if availableSubcategories.length > 0}
-            <div class="flex gap-2 w-full pb-4 mb-2 items-center overflow-x-auto scrollbar-hide snap-x flex-nowrap" in:fade>
-                <button 
-                    onclick={() => changeSubCategory('all')}
-                    class="px-3 py-1.5 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all border snap-start
-                    {activeSubCategory === 'all' ? 'bg-gray-800 text-white border-gray-800' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-gray-300'}"
-                >
-                    Semua {filter !== 'all' ? filterOptions.find(o => o.id === filter)?.label : ''}
-                </button>
-                {#each availableSubcategories as sub}
-                <button 
-                    onclick={() => changeSubCategory(sub)}
-                    class="px-3 py-1.5 rounded-full text-[10px] md:text-xs font-semibold whitespace-nowrap flex-shrink-0 transition-all border snap-start
-                    {activeSubCategory === sub ? 'bg-[#C4161C] text-white border-[#C4161C]' : 'bg-gray-50 text-gray-500 border-gray-100 hover:border-gray-300 hover:text-gray-700'}"
-                >
-                    {sub}
-                </button>
-                {/each}
-            </div>
-            {/if}
 
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 md:gap-y-10 mb-10" in:fade={{duration: 200}}>
                 {#each visibleProducts as item (item.id || item.name)}
@@ -438,8 +432,8 @@
                         Tidak ada produk ditemukan
                     {/if}
                 </h3>
-                {#if searchTerm || minPrice || maxPrice || filter !== 'all'}
-                    <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Hapus Filter</button>
+                {#if searchTerm || minPrice || maxPrice || filter !== 'all' || activeSubCategory !== 'all'}
+                    <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Hapus Semua Filter</button>
                 {/if}
             </div>
         {/if}
