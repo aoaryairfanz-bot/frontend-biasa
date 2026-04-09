@@ -45,10 +45,10 @@
 
     // Data Kategori Gambar Statis Baginda
     const mainCategories = [
-        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/katalog?category=rohani', imageUrl: 'https://images.unsplash.com/photo-1601142634808-38923eb7c560?auto=format&fit=crop&w=500&q=80' },
-        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775717412/4373eeb1-dc06-4c30-9f18-324e6a4232d8.png' },
-        { id: 'buku', label: 'Buku', link: '/katalog?category=buku', imageUrl: 'https://images.unsplash.com/photo-1589829085413-56de8ae18c73?auto=format&fit=crop&w=500&q=80' },
-        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/katalog?search=sekolah%20minggu', imageUrl: 'https://images.unsplash.com/photo-1519340333755-56e9c1d04579?auto=format&fit=crop&w=500&q=80' }
+        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/katalog?category=rohani', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
+        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
+        { id: 'buku', label: 'Buku', link: '/katalog?category=buku', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
+        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/katalog?search=sekolah%20minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
     ];
 
     // --- FETCH DATA ---
