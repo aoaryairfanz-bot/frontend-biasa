@@ -125,7 +125,8 @@
     if (browser) {
         $effect(() => {
             if (displayBanners.length > 1) {
-                const timer = setInterval(() => { currentIndex = (currentIndex + 1) % displayBanners.length; }, 5000);
+                // Ubah angka 5000 menjadi 12000 (12 detik) atau 15000 (15 detik)
+                const timer = setInterval(() => { currentIndex = (currentIndex + 1) % displayBanners.length; }, 12000);
                 return () => clearInterval(timer);
             }
         });
