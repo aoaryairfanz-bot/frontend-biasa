@@ -193,7 +193,7 @@
                 Narwastu Toko Kristiani
             </h1>
             <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
-                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
+                Menyediakan aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
             </p>
         </div>
     </section>
