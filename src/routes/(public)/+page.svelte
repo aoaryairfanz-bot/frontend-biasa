@@ -166,9 +166,9 @@
     
     <section class="w-full mb-10" aria-label="Promo Utama">
         {#if loadingBanner && displayBanners.length === 0}
-            <div class="relative w-full aspect-[2.5/1] md:aspect-[3.5/1] bg-gray-100 animate-pulse"></div>
+            <div class="relative w-full aspect-[2/1] bg-gray-100 animate-pulse"></div>
         {:else if displayBanners.length > 0}
-            <div class="relative w-full aspect-[2.5/1] md:aspect-[3.5/1] overflow-hidden bg-gray-50 group">
+            <div class="relative w-full aspect-[2/1] overflow-hidden bg-gray-50 group">
                 {#each displayBanners as banner, i}
                     {#if i === currentIndex}
                         <div in:fade={{ duration: 800 }} out:fade={{ duration: 800 }} class="absolute inset-0 w-full h-full">
@@ -187,16 +187,16 @@
 
     <section class="w-full mb-10 text-center" aria-label="Sambutan">
         <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-lg md:text-3xl font-extrabold text-gray-900 mb-2 md:mb-3">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
                 Narwastu Toko Kristiani
             </h1>
-            <p class="text-[11px] md:text-base text-gray-500 font-medium leading-relaxed px-2 md:px-0">
-                Menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
+            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
+                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
             </p>
         </div>
     </section>
 
-    <nav class="w-full mb-16" aria-label="Kategori Gambar">
+    <nav class="w-full mb-14" aria-label="Kategori Gambar">
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
