@@ -162,161 +162,141 @@
     .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
 </style>
 
-<div class="min-h-screen bg-white font-sans pb-24 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
+<div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mt-4 mb-16" aria-label="Promo Utama">
-        <div class="container mx-auto px-4 max-w-[1200px]">
-            {#if loadingBanner && displayBanners.length === 0}
-                <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-sm bg-gray-100 animate-pulse"></div>
-            {:else if displayBanners.length > 0}
-                <div class="relative w-full aspect-[2.5/1] md:aspect-[3/1] rounded-sm overflow-hidden bg-gray-50 group">
-                    {#each displayBanners as banner, i}
-                        {#if i === currentIndex}
-                            <div in:fade={{ duration: 800 }} out:fade={{ duration: 800 }} class="absolute inset-0 w-full h-full">
-                                <img src={optimizeUrl(banner.image_url)} alt="Promo" class="w-full h-full object-cover" fetchpriority="high" loading="eager" decoding="async" />
-                            </div>
-                        {/if}
+    <section class="w-full mb-10" aria-label="Promo Utama">
+        {#if loadingBanner && displayBanners.length === 0}
+            <div class="relative w-full aspect-[2.5/1] md:aspect-[3.5/1] bg-gray-100 animate-pulse"></div>
+        {:else if displayBanners.length > 0}
+            <div class="relative w-full aspect-[2.5/1] md:aspect-[3.5/1] overflow-hidden bg-gray-50 group">
+                {#each displayBanners as banner, i}
+                    {#if i === currentIndex}
+                        <div in:fade={{ duration: 800 }} out:fade={{ duration: 800 }} class="absolute inset-0 w-full h-full">
+                            <img src={optimizeUrl(banner.image_url)} alt="Promo" class="w-full h-full object-cover" fetchpriority="high" loading="eager" decoding="async" />
+                        </div>
+                    {/if}
+                {/each}
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+                    {#each displayBanners as _, i}
+                        <button onclick={() => currentIndex = i} class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-1.5'}"></button>
                     {/each}
-                    <div class="absolute bottom-5 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
-                        {#each displayBanners as _, i}
-                            <button onclick={() => currentIndex = i} class="h-1.5 rounded-none transition-all duration-300 {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-2'}"></button>
-                        {/each}
-                    </div>
                 </div>
-            {/if}
-        </div>
+            </div>
+        {/if}
     </section>
 
-    <section class="w-full mb-14 text-center" aria-label="Sambutan">
+    <section class="w-full mb-10 text-center" aria-label="Sambutan">
         <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-3xl md:text-4xl font-semibold text-gray-900 mb-4 tracking-tight">
+            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
                 Narwastu Toko Kristiani
             </h1>
-            <p class="text-sm md:text-base text-gray-500 font-light leading-relaxed">
-                Menyediakan aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
+            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
+                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
             </p>
         </div>
     </section>
 
-    <section class="w-full mb-20" aria-label="Kategori Gambar">
+    <nav class="w-full mb-14" aria-label="Kategori Gambar">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="grid grid-cols-2 md:grid-cols-4 gap-4 md:gap-6">
+            <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Kategori Pilihan</h3>
+            
+            <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[3/2] overflow-hidden bg-gray-100">
+                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                        
                         <img 
                             src={cat.imageUrl} 
                             alt={cat.label} 
-                            class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-105 transition-transform duration-700" 
+                            class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" 
                             loading="lazy" 
                             decoding="async"
                         />
-                        <div class="absolute inset-0 bg-black/10 group-hover:bg-black/30 transition-colors z-10 duration-500"></div>
                         
-                        <div class="absolute inset-0 z-20 flex flex-col items-center justify-center p-4">
-                            <span class="text-white text-base md:text-lg font-semibold tracking-wide text-center drop-shadow-md mb-2">
+                        <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-black/90 transition-colors z-10 duration-500"></div>
+                        
+                        <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center p-1 pb-1.5 md:p-3 md:pb-4">
+                            <span class="text-white text-[9px] sm:text-[10px] md:text-sm font-extrabold tracking-wide text-center drop-shadow-md leading-tight">
                                 {cat.label}
-                            </span>
-                            <span class="text-white text-[9px] md:text-[10px] uppercase tracking-widest border-b border-white pb-0.5 opacity-0 group-hover:opacity-100 transition-all duration-300 transform translate-y-2 group-hover:translate-y-0">
-                                Lihat Koleksi
                             </span>
                         </div>
                     </a>
                 {/each}
             </div>
         </div>
-    </section>
+    </nav>
 
     {#snippet productCard(item)}
-        <div class="group relative flex flex-col h-full cursor-pointer bg-white">
-            <div class="relative w-full aspect-[3/4] mb-4 overflow-hidden bg-white group-hover:shadow-[0_4px_20px_rgba(0,0,0,0.05)] transition-shadow duration-300">
-                <a href="/produk/{item.slug}" class="block w-full h-full border border-gray-100">
-                    <img src={optimizeUrl(item.image_1_url)} alt={item.name} loading="lazy" decoding="async" class="w-full h-full object-contain p-4 transition-transform duration-500 group-hover:scale-105" />
+        <div class="group relative flex flex-col h-full cursor-pointer">
+            <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
+                <a href="/produk/{item.slug}" class="block w-full h-full">
+                    <img src={optimizeUrl(item.image_1_url)} alt={item.name} loading="lazy" decoding="async" class="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
                 </a>
                 {#if item.discount_label}
-                    <span class="absolute top-2 left-2 bg-[#C4161C] text-white text-[10px] font-semibold px-2 py-1 z-10 uppercase tracking-wider">
-                        {item.discount_label}
-                    </span>
+                    <span class="absolute top-0 left-0 bg-[#C4161C] text-white text-[10px] font-bold px-2 py-1 rounded-br-lg shadow-sm z-10">{item.discount_label}</span>
                 {/if}
             </div>
-            
             <div class="flex flex-col flex-grow px-1">
-                <h3 class="text-sm font-normal text-gray-800 leading-snug line-clamp-2 mb-1 group-hover:text-[#C4161C] transition-colors">
-                    <a href="/produk/{item.slug}">{item.name}</a>
-                </h3>
-                
-                <div class="mt-auto pt-1 flex items-center gap-2 flex-wrap">
-                    <span class="text-sm font-semibold text-gray-900">{formatRupiah(item.final_price)}</span>
-                    {#if item.display_strike_price > item.final_price}
-                        <span class="text-xs text-gray-400 line-through decoration-gray-300">{formatRupiah(item.display_strike_price)}</span>
-                    {/if}
+                <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">{item.subcategory || item.category || 'Umum'}</div>
+                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]"><a href="/produk/{item.slug}">{item.name}</a></h3>
+                <div class="mt-auto pt-1">
+                    <div class="flex flex-col items-start">
+                        {#if item.display_strike_price > item.final_price}
+                            <span class="text-[10px] text-gray-400 line-through decoration-gray-300 mb-0.5">{formatRupiah(item.display_strike_price)}</span>
+                        {/if}
+                        <span class="text-base font-black text-[#C4161C]">{formatRupiah(item.final_price)}</span>
+                    </div>
                 </div>
             </div>
         </div>
     {/snippet}
 
     {#if bestPromos.length > 0}
-    <section class="mb-20" aria-label="Promo">
+    <section class="mb-16 bg-red-50/50 py-10" aria-label="Promo">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="text-center mb-10 flex flex-col items-center">
-                <h2 class="text-2xl md:text-3xl font-semibold text-gray-900 mb-3">Promo Spesial</h2>
-                <div class="h-0.5 w-12 bg-[#C4161C] mx-auto mb-4"></div>
-                <p class="text-xs md:text-sm text-gray-500">Penawaran terbaik minggu ini</p>
+            <div class="flex items-center justify-between mb-6">
+                <div class="flex items-center gap-2">
+                    <TagIcon size="20" class="text-[#C4161C]"/>
+                    <h2 class="text-xl font-extrabold text-gray-900">Promo!</h2>
+                </div>
+                <a href="/katalog?sort=promo" class="text-xs font-bold text-[#C4161C] hover:underline flex items-center gap-1">Lihat Semua <ChevronRightIcon size="14"/></a>
             </div>
-            
             <div class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
                 {#each bestPromos as item}
-                    <div class="snap-start flex-shrink-0 w-[160px] md:w-[220px]">{@render productCard(item)}</div>
+                    <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
                 {/each}
-            </div>
-            
-            <div class="text-center mt-6">
-                <a href="/katalog?sort=promo" class="inline-block border-b border-gray-900 text-gray-900 text-xs font-semibold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
-                    Lihat Semua Promo
-                </a>
             </div>
         </div>
     </section>
     {/if}
 
-    <section class="mb-20" aria-label="Terbaru">
+    <section class="mb-16" aria-label="Terbaru">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="text-center mb-10 flex flex-col items-center">
-                <h2 class="text-2xl md:text-3xl font-semibold text-gray-900 mb-3">Koleksi Terbaru</h2>
-                <div class="h-0.5 w-12 bg-[#C4161C] mx-auto mb-4"></div>
-                <p class="text-xs md:text-sm text-gray-500">Temukan produk terbaru dari kami</p>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Koleksi Terbaru</h2>
+                <a href="/katalog?sort=newest" class="text-xs font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1">Lihat Semua <ChevronRightIcon size="14"/></a>
             </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                 {#if loadingProducts && products.length === 0}
-                    {#each Array(5) as _}
+                    {#each Array(6) as _}
                         <div class="flex flex-col gap-2">
-                            <div class="w-full aspect-[3/4] bg-gray-100 animate-pulse"></div>
-                            <div class="h-4 w-3/4 bg-gray-100 animate-pulse mt-2"></div>
-                            <div class="h-4 w-1/2 bg-gray-100 animate-pulse"></div>
+                            <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
+                            <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
+                            <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
                         </div>
                     {/each}
                 {:else}
                     {#each latestProducts as item}{@render productCard(item)}{/each}
                 {/if}
             </div>
-
-            <div class="text-center mt-12">
-                <a href="/katalog?sort=newest" class="inline-block border-b border-gray-900 text-gray-900 text-xs font-semibold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
-                    Lihat Semua Koleksi
-                </a>
-            </div>
         </div>
     </section>
 
     <section class="mb-16" aria-label="Best Seller">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="text-center mb-10 flex flex-col items-center">
-                <h2 class="text-2xl md:text-3xl font-semibold text-gray-900 mb-3">Paling Dicari</h2>
-                <div class="h-0.5 w-12 bg-[#C4161C] mx-auto mb-4"></div>
-                <p class="text-xs md:text-sm text-gray-500">Produk rohani terfavorit pelanggan kami</p>
+            <div class="flex items-center justify-between mb-6">
+                <h2 class="text-xl font-extrabold text-gray-900">Paling Dicari</h2>
             </div>
-            
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-12">
+            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                 {#each bestSellers as item}{@render productCard(item)}{/each}
             </div>
         </div>
@@ -324,13 +304,13 @@
 
     {#if showBranchModal}
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-        <div class="bg-white w-full max-w-5xl rounded-sm shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
+        <div class="bg-white w-full max-w-5xl rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
             <div class="flex justify-between items-center p-6 border-b border-gray-100 shrink-0">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">Pilih Lokasi Cabang</h3>
+                    <h3 class="text-lg font-extrabold text-gray-900">Pilih Lokasi Cabang</h3>
                     <p class="text-xs text-gray-500">Hubungi cabang terdekat via WhatsApp</p>
                 </div>
-                <button onclick={() => showBranchModal = false} class="p-2 hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition"><XIcon size="20"/></button>
+                <button onclick={() => showBranchModal = false} class="p-2 rounded-full hover:bg-gray-100 text-gray-400 hover:text-[#C4161C] transition"><XIcon size="20"/></button>
             </div>
             <div class="p-6 bg-white overflow-y-auto custom-scrollbar flex-1">
                 {#if isLoadingBranches}
@@ -340,12 +320,12 @@
                 {:else}
                     <div class="grid grid-cols-2 md:grid-cols-4 gap-4">
                         {#each branches as branch}
-                            <button onclick={() => chatBranch(branch.whatsapp)} class="border border-gray-100 p-4 hover:border-[#C4161C] hover:bg-red-50/10 transition-all text-left group h-full flex flex-col justify-between hover:shadow-sm active:scale-[0.98]">
+                            <button onclick={() => chatBranch(branch.whatsapp)} class="border border-gray-100 rounded-xl p-4 hover:border-[#C4161C] hover:bg-red-50/20 transition-all text-left group h-full flex flex-col justify-between shadow-sm hover:shadow-md active:scale-[0.98]">
                                 <div>
-                                    <div class="text-[9px] font-semibold text-gray-400 uppercase tracking-wider mb-1.5">{#if branch.id === 1} PUSAT {:else} CABANG {/if}</div>
-                                    <h4 class="font-semibold text-gray-800 text-xs md:text-sm leading-snug mb-3 group-hover:text-[#C4161C] transition-colors">{branch.name.replace('Narwastu ', '')}</h4>
+                                    <div class="text-[9px] font-bold text-gray-400 uppercase tracking-wider mb-1.5">{#if branch.id === 1} PUSAT {:else} CABANG {/if}</div>
+                                    <h4 class="font-bold text-gray-800 text-xs md:text-sm leading-snug mb-3 group-hover:text-[#C4161C] transition-colors">{branch.name.replace('Narwastu ', '')}</h4>
                                 </div>
-                                <div class="flex items-center gap-1.5 text-[#C4161C] text-[10px] font-semibold mt-auto bg-white border border-[#C4161C]/20 px-2 py-1.5 w-fit group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
+                                <div class="flex items-center gap-1.5 text-[#C4161C] text-[10px] font-bold mt-auto bg-white border border-[#C4161C]/20 px-2 py-1.5 rounded-lg w-fit group-hover:bg-[#C4161C] group-hover:text-white transition-colors">
                                     <MessageCircleIcon size="12"/><span>Chat WA</span>
                                 </div>
                             </button>
@@ -358,7 +338,7 @@
     {/if}
 
     {#if errorMsg}
-        <div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 shadow-xl z-50 text-sm font-semibold flex items-center gap-3">
+        <div class="fixed bottom-10 left-1/2 -translate-x-1/2 bg-red-600 text-white px-6 py-3 rounded-full shadow-xl z-50 text-sm font-bold flex items-center gap-3">
             <AlertCircleIcon size="18" /><span>{errorMsg}</span><button onclick={() => window.location.reload()}><RefreshCwIcon size="16"/></button>
         </div>
     {/if}
