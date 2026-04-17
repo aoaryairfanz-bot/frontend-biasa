@@ -187,22 +187,20 @@
 
     <section class="w-full mb-10 text-center" aria-label="Sambutan">
         <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
+            <h1 class="text-lg md:text-3xl font-extrabold text-gray-900 mb-2 md:mb-3">
                 Narwastu Toko Kristiani
             </h1>
-            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
-                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
+            <p class="text-[11px] md:text-base text-gray-500 font-medium leading-relaxed px-2 md:px-0">
+                Menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
             </p>
         </div>
     </section>
 
-    <nav class="w-full mb-14" aria-label="Kategori Gambar">
+    <nav class="w-full mb-16" aria-label="Kategori Gambar">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <h3 class="text-sm font-bold text-gray-900 uppercase tracking-wider mb-4">Kategori Pilihan</h3>
-            
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         
                         <img 
                             src={cat.imageUrl} 
@@ -251,19 +249,25 @@
     {/snippet}
 
     {#if bestPromos.length > 0}
-    <section class="mb-16 bg-red-50/50 py-10" aria-label="Promo">
+    <section class="mb-16 bg-red-50/50 py-12" aria-label="Promo">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="flex items-center justify-between mb-6">
-                <div class="flex items-center gap-2">
-                    <TagIcon size="20" class="text-[#C4161C]"/>
-                    <h2 class="text-xl font-extrabold text-gray-900">Promo!</h2>
-                </div>
-                <a href="/katalog?sort=promo" class="text-xs font-bold text-[#C4161C] hover:underline flex items-center gap-1">Lihat Semua <ChevronRightIcon size="14"/></a>
+            <div class="text-center mb-10 flex flex-col items-center">
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2 flex items-center justify-center gap-2">
+                    <TagIcon size="20" class="text-[#C4161C]"/> Promo Spesial
+                </h2>
+                <p class="text-[11px] md:text-sm text-gray-500">Penawaran terbaik dengan harga khusus</p>
             </div>
+
             <div class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
                 {#each bestPromos as item}
                     <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
                 {/each}
+            </div>
+
+            <div class="text-center mt-6">
+                <a href="/katalog?sort=promo" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
+                    Lihat Semua Promo
+                </a>
             </div>
         </div>
     </section>
@@ -271,10 +275,11 @@
 
     <section class="mb-16" aria-label="Terbaru">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-extrabold text-gray-900">Koleksi Terbaru</h2>
-                <a href="/katalog?sort=newest" class="text-xs font-bold text-gray-500 hover:text-gray-900 flex items-center gap-1">Lihat Semua <ChevronRightIcon size="14"/></a>
+            <div class="text-center mb-10 flex flex-col items-center">
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">Koleksi Terbaru</h2>
+                <p class="text-[11px] md:text-sm text-gray-500">Temukan produk terbaru dari kami</p>
             </div>
+
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                 {#if loadingProducts && products.length === 0}
                     {#each Array(6) as _}
@@ -288,14 +293,22 @@
                     {#each latestProducts as item}{@render productCard(item)}{/each}
                 {/if}
             </div>
+
+            <div class="text-center mt-10">
+                <a href="/katalog?sort=newest" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
+                    Lihat Semua Koleksi
+                </a>
+            </div>
         </div>
     </section>
 
     <section class="mb-16" aria-label="Best Seller">
         <div class="container mx-auto px-4 max-w-[1200px]">
-            <div class="flex items-center justify-between mb-6">
-                <h2 class="text-xl font-extrabold text-gray-900">Paling Dicari</h2>
+            <div class="text-center mb-10 flex flex-col items-center">
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">Paling Dicari</h2>
+                <p class="text-[11px] md:text-sm text-gray-500">Produk rohani terfavorit pelanggan kami</p>
             </div>
+
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
                 {#each bestSellers as item}{@render productCard(item)}{/each}
             </div>
