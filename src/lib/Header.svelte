@@ -4,6 +4,9 @@
     import { HomeIcon, ShoppingBagIcon, MessageCircleIcon, HelpCircleIcon, SearchIcon } from 'svelte-feather-icons';
 
     let searchQuery = $state(""); 
+    
+    // [BARU] State untuk melacak posisi gulir (scroll) layar
+    let scrollY = $state(0); 
 
     function handleSearch() {
         if (searchQuery.trim() !== "") {
@@ -25,9 +28,18 @@
     ];
 
     const logoUrl = "https://res.cloudinary.com/dqyztrelw/image/upload/w_64,q_auto:eco,f_auto/v1766051198/favicon_jgz09p.png";
+
+    // [BARU] Deteksi cerdas: Apakah ini Beranda? Dan apakah sudah di-scroll?
+    let isHome = $derived($page.url.pathname === '/');
+    let isScrolled = $derived(scrollY > 30);
 </script>
 
-<header class="sticky top-0 z-50 bg-white/80 backdrop-blur-md shadow-sm border-b border-gray-100" style="font-family: 'Poppins', sans-serif;">
+<svelte:window bind:scrollY={scrollY} />
+
+<header 
+    class="fixed top-0 inset-x-0 z-50 transition-all duration-500 ease-in-out {isHome && !isScrolled ? 'bg-transparent border-transparent py-1' : 'bg-white/70 backdrop-blur-xl shadow-[0_4px_30px_rgb(0,0,0,0.03)] border-b border-gray-100 py-0'}" 
+    style="font-family: 'Poppins', sans-serif;"
+>
     <div class="container mx-auto px-4 py-3 flex items-center justify-between gap-2 md:gap-4">
         
         <a href="/" class="flex items-center gap-2 flex-shrink-0 group" aria-label="Homepage">
@@ -50,19 +62,19 @@
         </a>
 
         <div class="flex-grow max-w-xl md:mx-4">
-            <div class="relative">
+            <div class="relative group">
                 <input 
                     type="text" 
                     bind:value={searchQuery}
                     onkeydown={handleKeyDown}
                     placeholder="Cari..." 
-                    class="w-full bg-gray-50 text-gray-700 text-xs md:text-sm py-2 px-4 pl-4 pr-9 border border-transparent focus:outline-none focus:ring-1 focus:ring-[#C4161C]/20 focus:border-[#C4161C] focus:bg-white transition-all duration-300 rounded-lg placeholder-gray-400"
+                    class="w-full bg-white/60 backdrop-blur-sm text-gray-800 text-xs md:text-sm py-2.5 px-4 pl-4 pr-10 border border-gray-200/50 focus:outline-none focus:ring-2 focus:ring-[#C4161C]/30 focus:border-[#C4161C]/50 focus:bg-white transition-all duration-300 rounded-xl shadow-inner placeholder-gray-500"
                     aria-label="Kolom Pencarian"
                 />
                 <button 
                     onclick={handleSearch}
                     aria-label="Tombol Cari"
-                    class="absolute right-1 top-1/2 transform -translate-y-1/2 p-1.5 bg-[#C4161C] text-white hover:bg-[#a51318] transition shadow-sm active:scale-90 rounded-md"
+                    class="absolute right-1 top-1/2 transform -translate-y-1/2 p-1.5 bg-[#C4161C] text-white hover:bg-[#a51318] transition shadow-sm active:scale-90 rounded-lg"
                 >
                     <SearchIcon size="14" />
                 </button>
@@ -70,29 +82,30 @@
         </div>
 
         <nav class="hidden md:flex items-center flex-shrink-0 gap-6">
-            <div class="flex gap-6 text-sm font-medium">
-                <a href="/katalog" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
+            <div class="flex gap-6 text-sm font-semibold {isHome && !isScrolled ? 'text-gray-800 drop-shadow-md' : 'text-gray-600'}">
+                <a href="/katalog" class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
                     Katalog
                 </a>
-                <a href="/kontak" 
-                   class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/kontak') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
+                <a href="/kontak" class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/kontak') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
                     Kontak
                 </a>
-                <a href="/bantuan" 
-                   class="transition-all duration-300 {$page.url.pathname.startsWith('/bantuan') ? 'text-[#C4161C] font-bold' : 'text-gray-500 hover:text-[#C4161C]'}">
+                <a href="/bantuan" class="transition-all duration-300 {$page.url.pathname.startsWith('/bantuan') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
                     Cara Pesan
                 </a>
             </div>
 
-            <div class="h-5 w-px bg-gray-200"></div>
+            <div class="h-5 w-px bg-gray-300/50"></div>
 
-            <a href="/katalog" class="text-xs font-bold text-white bg-[#C4161C] hover:bg-[#a51318] px-5 py-2 rounded-lg transition-all shadow-md active:scale-95 tracking-wide">
+            <a href="/katalog" class="text-xs font-bold text-white bg-[#C4161C] hover:bg-[#a51318] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-red-900/20 active:scale-95 tracking-wide">
                 Belanja
             </a>
         </nav>
     </div>
 </header>
+
+{#if !isHome}
+    <div class="h-[68px] md:h-[76px] w-full"></div>
+{/if}
 
 <div class="md:hidden fixed bottom-4 left-4 right-4 bg-white/90 backdrop-blur-lg border border-gray-100 px-6 py-3 z-50 rounded-3xl shadow-[0_8px_30px_rgb(0,0,0,0.12)]" style="font-family: 'Poppins', sans-serif;">
     <div class="flex justify-between items-center">

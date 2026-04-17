@@ -164,7 +164,7 @@
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
-    <section class="w-full mb-10" aria-label="Promo Utama">
+    <section class="w-full mt-0 mb-10" aria-label="Promo Utama">
         {#if loadingBanner && displayBanners.length === 0}
             <div class="relative w-full aspect-[2/1] bg-gray-100 animate-pulse"></div>
         {:else if displayBanners.length > 0}
