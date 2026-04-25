@@ -2,7 +2,7 @@
     import { onMount } from 'svelte';
     import { fly, fade } from 'svelte/transition'; 
     import { browser } from '$app/environment';
-    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon, ChevronRightIcon, TagIcon } from 'svelte-feather-icons'; 
+    import { XIcon, AlertCircleIcon, RefreshCwIcon, MapPinIcon, MessageCircleIcon, ChevronRightIcon, ChevronLeftIcon, TagIcon } from 'svelte-feather-icons'; 
     import { PUBLIC_API_URL } from '$env/static/public'; 
 
     // --- STATE ---
@@ -21,6 +21,11 @@
     let errorMsg = $state("");
     
     let currentIndex = $state(0);
+
+    // [BARU] Referensi untuk menggeser daftar produk
+    let promoScrollNode = $state(null);
+    let newScrollNode = $state(null);
+    let bestScrollNode = $state(null);
 
     // --- DERIVED DATA ---
     const displayBanners = $derived(banners.slice(0, 5));
@@ -125,14 +130,30 @@
     if (browser) {
         $effect(() => {
             if (displayBanners.length > 1) {
-                // Ubah angka 5000 menjadi 12000 (12 detik) atau 15000 (15 detik)
                 const timer = setInterval(() => { currentIndex = (currentIndex + 1) % displayBanners.length; }, 12000);
                 return () => clearInterval(timer);
             }
         });
     }
 
-    // --- ACTIONS ---
+    // --- ACTIONS & HELPERS ---
+    
+    // [BARU] Fungsi Geser Banner
+    function nextBanner() {
+        if (displayBanners.length > 0) currentIndex = (currentIndex + 1) % displayBanners.length;
+    }
+    function prevBanner() {
+        if (displayBanners.length > 0) currentIndex = (currentIndex - 1 + displayBanners.length) % displayBanners.length;
+    }
+
+    // [BARU] Fungsi Geser Produk
+    function scrollNode(node, direction) {
+        if (node) {
+            const scrollAmount = window.innerWidth > 768 ? 640 : 300; 
+            node.scrollBy({ left: direction * scrollAmount, behavior: 'smooth' });
+        }
+    }
+
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
@@ -177,6 +198,15 @@
                         </div>
                     {/if}
                 {/each}
+
+                <button aria-label="Banner Sebelumnya" onclick={prevBanner} class="absolute left-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md hover:bg-white z-20 text-gray-800 hidden md:flex">
+                    <ChevronLeftIcon size="24" />
+                </button>
+                
+                <button aria-label="Banner Selanjutnya" onclick={nextBanner} class="absolute right-4 top-1/2 -translate-y-1/2 w-10 h-10 md:w-12 md:h-12 bg-white/80 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity duration-300 shadow-md hover:bg-white z-20 text-gray-800 hidden md:flex">
+                    <ChevronRightIcon size="24" />
+                </button>
+
                 <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
                     {#each displayBanners as _, i}
                         <button onclick={() => currentIndex = i} class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-1.5'}"></button>
@@ -202,17 +232,8 @@
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
                     <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
-                        
-                        <img 
-                            src={cat.imageUrl} 
-                            alt={cat.label} 
-                            class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" 
-                            loading="lazy" 
-                            decoding="async"
-                        />
-                        
+                        <img src={cat.imageUrl} alt={cat.label} class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-black/90 transition-colors z-10 duration-500"></div>
-                        
                         <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center p-1 pb-1.5 md:p-3 md:pb-4">
                             <span class="text-white text-[9px] sm:text-[10px] md:text-sm font-extrabold tracking-wide text-center drop-shadow-md leading-tight">
                                 {cat.label}
@@ -253,16 +274,24 @@
     <section class="mb-16 bg-red-50/50 py-12" aria-label="Promo">
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="text-center mb-10 flex flex-col items-center">
-                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">
-                    Promo Spesial
-                </h2>
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">Promo Spesial</h2>
                 <p class="text-[11px] md:text-sm text-gray-500">Penawaran terbaik dengan harga khusus</p>
             </div>
 
-            <div class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-0">
-                {#each bestPromos as item}
-                    <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
-                {/each}
+            <div class="relative group/slider">
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(promoScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="24" />
+                </button>
+
+                <div bind:this={promoScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                    {#each bestPromos as item}
+                        <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
+                    {/each}
+                </div>
+
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(promoScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="24" />
+                </button>
             </div>
 
             <div class="text-center mt-6">
@@ -281,21 +310,33 @@
                 <p class="text-[11px] md:text-sm text-gray-500">Temukan produk terbaru dari kami</p>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
-                {#if loadingProducts && products.length === 0}
-                    {#each Array(6) as _}
-                        <div class="flex flex-col gap-2">
-                            <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
-                            <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
-                            <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
-                        </div>
-                    {/each}
-                {:else}
-                    {#each latestProducts as item}{@render productCard(item)}{/each}
-                {/if}
+            <div class="relative group/slider">
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(newScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="24" />
+                </button>
+
+                <div bind:this={newScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                    {#if loadingProducts && products.length === 0}
+                        {#each Array(6) as _}
+                            <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px] flex flex-col gap-2">
+                                <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
+                                <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
+                                <div class="h-4 w-1/2 bg-gray-100 rounded animate-pulse"></div>
+                            </div>
+                        {/each}
+                    {:else}
+                        {#each latestProducts as item}
+                            <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
+                        {/each}
+                    {/if}
+                </div>
+
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(newScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="24" />
+                </button>
             </div>
 
-            <div class="text-center mt-10">
+            <div class="text-center mt-8">
                 <a href="/katalog?sort=newest" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
                     Lihat Semua Koleksi
                 </a>
@@ -310,8 +351,20 @@
                 <p class="text-[11px] md:text-sm text-gray-500">Produk rohani terfavorit pelanggan kami</p>
             </div>
 
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-6 gap-x-4 gap-y-10">
-                {#each bestSellers as item}{@render productCard(item)}{/each}
+            <div class="relative group/slider">
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(bestScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="24" />
+                </button>
+
+                <div bind:this={bestScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                    {#each bestSellers as item}
+                        <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
+                    {/each}
+                </div>
+
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(bestScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="24" />
+                </button>
             </div>
         </div>
     </section>
