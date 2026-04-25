@@ -253,8 +253,8 @@
     <section class="mb-16 bg-red-50/50 py-12" aria-label="Promo">
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="text-center mb-10 flex flex-col items-center">
-                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2 flex items-center justify-center gap-2">
-                    <TagIcon size="20" class="text-[#C4161C]"/> Promo Spesial
+                <h2 class="text-xl md:text-2xl font-extrabold text-gray-900 mb-2">
+                    Promo Spesial
                 </h2>
                 <p class="text-[11px] md:text-sm text-gray-500">Penawaran terbaik dengan harga khusus</p>
             </div>
