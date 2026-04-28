@@ -108,15 +108,28 @@
 
     async function fetchBannerData() {
         try {
-            const res = await fetch(`${PUBLIC_API_URL}/banners/`); 
+            const cloudName = 'dqyztrelw'; 
+            const tag = 'banner_beranda';  
+            
+            const res = await fetch(`https://res.cloudinary.com/${cloudName}/image/list/${tag}.json?context=true`); 
+            
             if (res.ok) {
-                let raw = await res.json();
-                if (!Array.isArray(raw)) raw = raw.data || raw.banners || [];
-                banners = raw; 
+                const data = await res.json();
+                
+                banners = data.resources.map(item => ({
+                    image_url: `https://res.cloudinary.com/${cloudName}/image/upload/v${item.version}/${item.public_id}.${item.format}`,
+                    link: item.context?.custom?.link || '/katalog' 
+                }));
+                
                 updateCache();
+            } else {
+                console.warn("Banner belum ada atau pengaturan Resource List belum dibuka.");
             }
-        } catch (e) { console.error("Banner Error", e); } 
-        finally { loadingBanner = false; }
+        } catch (e) { 
+            console.error("Gagal menyedot banner super cepat:", e); 
+        } finally { 
+            loadingBanner = false; 
+        }
     }
 
     function updateCache() {
@@ -138,7 +151,6 @@
 
     // --- ACTIONS & HELPERS ---
     
-    // [BARU] Fungsi Geser Banner
     function nextBanner() {
         if (displayBanners.length > 0) currentIndex = (currentIndex + 1) % displayBanners.length;
     }
@@ -146,7 +158,6 @@
         if (displayBanners.length > 0) currentIndex = (currentIndex - 1 + displayBanners.length) % displayBanners.length;
     }
 
-    // [BARU] Fungsi Geser Produk
     function scrollNode(node, direction) {
         if (node) {
             const scrollAmount = window.innerWidth > 768 ? 640 : 300; 
@@ -194,7 +205,9 @@
                 {#each displayBanners as banner, i}
                     {#if i === currentIndex}
                         <div in:fade={{ duration: 800 }} out:fade={{ duration: 800 }} class="absolute inset-0 w-full h-full">
-                            <img src={optimizeUrl(banner.image_url)} alt="Promo" class="w-full h-full object-cover" fetchpriority="high" loading="eager" decoding="async" />
+                            <a href={banner.link || '#'} class="block w-full h-full cursor-pointer">
+                                <img src={optimizeUrl(banner.image_url)} alt="Promo" class="w-full h-full object-cover" fetchpriority="high" loading="eager" decoding="async" />
+                            </a>
                         </div>
                     {/if}
                 {/each}
@@ -207,9 +220,9 @@
                     <ChevronRightIcon size="24" />
                 </button>
 
-                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10">
+                <div class="absolute bottom-4 left-1/2 -translate-x-1/2 flex space-x-2 z-10 pointer-events-none">
                     {#each displayBanners as _, i}
-                        <button onclick={() => currentIndex = i} class="h-1.5 rounded-full transition-all duration-300 {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-1.5'}"></button>
+                        <button onclick={(e) => { e.stopPropagation(); currentIndex = i; }} class="h-1.5 rounded-full transition-all duration-300 pointer-events-auto {i === currentIndex ? 'bg-white w-6' : 'bg-white/50 w-1.5'}"></button>
                     {/each}
                 </div>
             </div>
@@ -231,7 +244,7 @@
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         <img src={cat.imageUrl} alt={cat.label} class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-black/90 transition-colors z-10 duration-500"></div>
                         <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center p-1 pb-1.5 md:p-3 md:pb-4">
@@ -279,8 +292,8 @@
             </div>
 
             <div class="relative group/slider">
-                <button aria-label="Geser Kiri" onclick={() => scrollNode(promoScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronLeftIcon size="24" />
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(promoScrollNode, -1)} class="hidden md:flex absolute -left-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="20" />
                 </button>
 
                 <div bind:this={promoScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
@@ -289,8 +302,8 @@
                     {/each}
                 </div>
 
-                <button aria-label="Geser Kanan" onclick={() => scrollNode(promoScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronRightIcon size="24" />
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(promoScrollNode, 1)} class="hidden md:flex absolute -right-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="20" />
                 </button>
             </div>
 
@@ -311,8 +324,8 @@
             </div>
 
             <div class="relative group/slider">
-                <button aria-label="Geser Kiri" onclick={() => scrollNode(newScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronLeftIcon size="24" />
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(newScrollNode, -1)} class="hidden md:flex absolute -left-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="20" />
                 </button>
 
                 <div bind:this={newScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
@@ -331,8 +344,8 @@
                     {/if}
                 </div>
 
-                <button aria-label="Geser Kanan" onclick={() => scrollNode(newScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronRightIcon size="24" />
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(newScrollNode, 1)} class="hidden md:flex absolute -right-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="20" />
                 </button>
             </div>
 
@@ -352,8 +365,8 @@
             </div>
 
             <div class="relative group/slider">
-                <button aria-label="Geser Kiri" onclick={() => scrollNode(bestScrollNode, -1)} class="hidden md:flex absolute -left-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronLeftIcon size="24" />
+                <button aria-label="Geser Kiri" onclick={() => scrollNode(bestScrollNode, -1)} class="hidden md:flex absolute -left-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronLeftIcon size="20" />
                 </button>
 
                 <div bind:this={bestScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
@@ -362,8 +375,8 @@
                     {/each}
                 </div>
 
-                <button aria-label="Geser Kanan" onclick={() => scrollNode(bestScrollNode, 1)} class="hidden md:flex absolute -right-5 top-[35%] -translate-y-1/2 w-12 h-12 bg-white rounded-full items-center justify-center shadow-[0_4px_12px_rgba(0,0,0,0.15)] text-gray-600 hover:text-[#C4161C] hover:scale-105 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
-                    <ChevronRightIcon size="24" />
+                <button aria-label="Geser Kanan" onclick={() => scrollNode(bestScrollNode, 1)} class="hidden md:flex absolute -right-4 top-[35%] -translate-y-1/2 w-10 h-10 bg-white rounded-full items-center justify-center shadow-md text-gray-400 hover:text-[#C4161C] hover:bg-gray-50 transition-all z-10 opacity-0 group-hover/slider:opacity-100 border border-gray-100">
+                    <ChevronRightIcon size="20" />
                 </button>
             </div>
         </div>
