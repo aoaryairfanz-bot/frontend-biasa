@@ -31,11 +31,11 @@
     async function loadData() {
         isLoading = true;
         try {
-            // Fetch Sliders
+            // Fetch Sliders (Sekarang langsung dari Cloudinary via Backend)
             const resSlider = await fetch(`${API_BASE}/banners/`);
             if (resSlider.ok) sliders = await resSlider.json();
 
-            // Fetch Popup
+            // Fetch Popup (Dari DB)
             const resPopup = await fetch(`${API_BASE}/banners/popup`);
             if (resPopup.ok) activePopup = await resPopup.json();
 
@@ -109,24 +109,30 @@
         }
     }
 
-    // --- 4. DELETE BANNER (Fitur Tambahan) ---
-    async function handleDelete(id, title) {
-        if(!confirm(`Yakin ingin menghapus banner "${title}"?`)) return;
+    // --- 4. DELETE BANNER (PERBAIKAN: Tambah Parameter 'type') ---
+    async function handleDelete(id, title, type) {
+        const itemName = title || 'Banner ini';
+        if(!confirm(`Yakin ingin menghapus ${itemName}?`)) return;
 
         const token = localStorage.getItem("token");
         try {
-            const res = await fetch(`${API_BASE}/banners/${id}`, {
+            // [KUNCI]: Kirim ?type=slider atau ?type=popup agar Backend tidak bingung!
+            const res = await fetch(`${API_BASE}/banners/${id}?type=${type}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
             if (res.ok) {
                 // Hapus lokal biar cepat update UI
-                sliders = sliders.filter(s => s.id !== id);
-                if(activePopup && activePopup.id === id) activePopup = null;
-                alert("Banner berhasil dihapus.");
+                if (type === 'slider') {
+                    sliders = sliders.filter(s => s.id !== id);
+                } else {
+                    activePopup = null;
+                }
+                alert("Berhasil dihapus.");
             } else {
-                alert("Gagal menghapus banner.");
+                const err = await res.json();
+                alert("Gagal menghapus: " + (err.detail || "Error"));
             }
         } catch (e) {
             console.error(e);
@@ -164,8 +170,8 @@
             <div class="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex flex-col md:flex-row gap-6 items-start relative overflow-hidden group">
                 <div class="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
                 
-                <button onclick={() => handleDelete(activePopup.id, activePopup.title)} 
-                    class="absolute top-4 right-4 bg-white text-red-500 p-2 rounded-full shadow-md hover:bg-red-50 transition z-20">
+                <button onclick={() => handleDelete(activePopup.id, activePopup.title, 'popup')} 
+                    class="absolute top-4 right-4 bg-white text-red-500 p-2 rounded-full shadow-md hover:bg-red-50 transition z-20" title="Hapus Popup">
                     <Trash2Icon size="18"/>
                 </button>
 
@@ -200,7 +206,7 @@
 
     <section>
         <h3 class="text-lg font-bold text-gray-700 mb-4 flex items-center gap-2">
-            <ImageIcon size="20" class="text-blue-500"/> Slider Banner
+            <ImageIcon size="20" class="text-blue-500"/> Slider Banner Beranda
         </h3>
 
         {#if isLoading}
@@ -213,19 +219,18 @@
                 {#each sliders as banner}
                 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition">
                     <div class="relative aspect-video bg-gray-200">
-                        <img src={banner.image_url} alt={banner.title} class="w-full h-full object-cover" />
+                        <img src={banner.image_url} alt="Banner Slider" class="w-full h-full object-cover" />
                         
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
-                            <button onclick={() => handleDelete(banner.id, banner.title)} 
+                            <button onclick={() => handleDelete(banner.id, banner.title, 'slider')} 
                                 class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition shadow-lg" 
                                 title="Hapus Banner">
                                 <Trash2Icon size="18"/>
                             </button>
                         </div>
-
                     </div>
                     <div class="p-4">
-                        <h5 class="font-bold text-gray-800 line-clamp-1" title={banner.title}>{banner.title}</h5>
+                        <h5 class="font-bold text-gray-800 line-clamp-1">{banner.title || 'Banner Promo Utama'}</h5>
                         {#if banner.link_url}
                             <div class="text-xs text-blue-500 mt-1 truncate">{banner.link_url}</div>
                         {/if}
@@ -235,7 +240,7 @@
             </div>
         {:else}
             <div class="bg-gray-50 border-2 border-dashed border-gray-200 rounded-3xl p-8 text-center text-gray-400">
-                <p>Belum ada slider banner.</p>
+                <p>Belum ada slider banner. Tambahkan untuk mempercantik beranda!</p>
             </div>
         {/if}
     </section>
@@ -263,7 +268,7 @@
                             <input type="radio" bind:group={formData.type} value="slider" class="peer sr-only" />
                             <div class="p-3 rounded-xl border-2 border-gray-100 peer-checked:border-blue-500 peer-checked:bg-blue-50 text-center transition">
                                 <ImageIcon size="24" class="mx-auto mb-1 text-gray-500 peer-checked:text-blue-600"/>
-                                <span class="text-sm font-bold text-gray-600 peer-checked:text-blue-700">Slider (Atas)</span>
+                                <span class="text-sm font-bold text-gray-600 peer-checked:text-blue-700">Slider (Beranda)</span>
                             </div>
                         </label>
                         <label class="cursor-pointer">
@@ -279,11 +284,14 @@
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Judul / Nama Promo</label>
                     <input type="text" bind:value={formData.title} required class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="Contoh: Promo Natal" />
+                    {#if formData.type === 'slider'}
+                        <p class="text-[10px] text-gray-400 mt-1">*Hanya untuk catatan admin, tidak tampil di gambar</p>
+                    {/if}
                 </div>
 
                 <div>
                     <label class="block text-sm font-bold text-gray-700 mb-1">Link Tautan (Opsional)</label>
-                    <input type="url" bind:value={formData.link_url} class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="https://..." />
+                    <input type="url" bind:value={formData.link_url} class="w-full px-4 py-2 border border-gray-200 rounded-xl focus:ring-2 focus:ring-blue-500 outline-none" placeholder="/katalog?promo=natal" />
                 </div>
 
                 <div>
@@ -297,7 +305,7 @@
                         {:else}
                             <UploadCloudIcon size="32" class="text-gray-400 mb-2"/>
                             <span class="text-xs text-gray-500 font-bold">Klik untuk pilih gambar</span>
-                            <span class="text-[10px] text-gray-400 mt-1">Format: JPG, PNG</span>
+                            <span class="text-[10px] text-gray-400 mt-1">Format: JPG, PNG | Saran Slider: 1551 x 776</span>
                         {/if}
 
                         <input type="file" bind:this={fileInput} accept="image/*" onchange={handleFileChange} class="absolute inset-0 opacity-0 cursor-pointer" />
