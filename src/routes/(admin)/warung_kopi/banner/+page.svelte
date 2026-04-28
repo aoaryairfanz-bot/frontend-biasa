@@ -11,7 +11,6 @@
     let sliders = $state([]);
     let isLoading = $state(true);
     let showModal = $state(false);
-    let isSubmitting = $state(false);
 
     // Form Data
     let formData = $state({
@@ -31,11 +30,9 @@
     async function loadData() {
         isLoading = true;
         try {
-            // Fetch Sliders (Sekarang langsung dari Cloudinary via Backend)
             const resSlider = await fetch(`${API_BASE}/banners/`);
             if (resSlider.ok) sliders = await resSlider.json();
 
-            // Fetch Popup (Dari DB)
             const resPopup = await fetch(`${API_BASE}/banners/popup`);
             if (resPopup.ok) activePopup = await resPopup.json();
 
@@ -65,8 +62,8 @@
         if (fileInput) fileInput.value = '';
     }
 
-    // --- 3. SUBMIT FORM ---
-    async function handleSubmit(e) {
+    // --- 3. SUBMIT FORM (OPTIMISTIC UI & BACKGROUND PROCESS) ---
+    function handleSubmit(e) {
         e.preventDefault();
         
         if (!formData.image) {
@@ -74,62 +71,84 @@
             return;
         }
 
-        isSubmitting = true;
         const token = localStorage.getItem("token"); 
+        const dataToSend = new FormData();
+        dataToSend.append('title', formData.title);
+        dataToSend.append('link_url', formData.link_url);
+        dataToSend.append('type', formData.type);
+        dataToSend.append('image', formData.image); 
 
+        // [KUNCI OPTIMISTIC UI]: Buat ID sementara dan tangkap preview gambar sebelum di-reset
+        const tempId = `temp-${Date.now()}`;
+        const tempImgUrl = imagePreview; 
+        const tempType = formData.type;
+
+        // 1. Munculkan gambar ke UI secara instan dengan status "isUploading: true"
+        if (tempType === 'slider') {
+            sliders = [{ id: tempId, title: formData.title, link_url: formData.link_url, image_url: tempImgUrl, type: 'slider', isUploading: true }, ...sliders];
+        } else {
+            activePopup = { id: tempId, title: formData.title, link_url: formData.link_url, image_url: tempImgUrl, type: 'popup', isUploading: true };
+        }
+
+        // 2. TUTUP MODAL & RESET FORM SEKETIKA! (Tidak ada waktu tunggu)
+        showModal = false;
+        resetForm();
+
+        // 3. JALANKAN UPLOAD DI LATAR BELAKANG (Tanpa await di alur utama)
+        uploadBackground(dataToSend, token, tempId, tempType);
+    }
+
+    // Fungsi Pekerja Latar Belakang
+    async function uploadBackground(dataToSend, token, tempId, type) {
         try {
-            const dataToSend = new FormData();
-            dataToSend.append('title', formData.title);
-            dataToSend.append('link_url', formData.link_url);
-            dataToSend.append('type', formData.type);
-            dataToSend.append('image', formData.image); 
-
             const res = await fetch(`${API_BASE}/banners/`, {
                 method: "POST",
-                headers: {
-                    "Authorization": `Bearer ${token}` 
-                },
+                headers: { "Authorization": `Bearer ${token}` },
                 body: dataToSend
             });
 
             if (res.ok) {
-                alert(`Berhasil menambah ${formData.type}!`);
-                showModal = false;
-                resetForm();
+                // Jika sukses, reload data dari server secara diam-diam untuk mendapatkan ID asli Cloudinary
                 loadData(); 
             } else {
                 const err = await res.json();
-                alert("Gagal: " + (err.detail || "Terjadi kesalahan"));
+                alert(`Gagal upload ${type}: ` + (err.detail || "Terjadi kesalahan"));
+                revertOptimisticUI(tempId, type);
             }
         } catch (error) {
             console.error(error);
-            alert("Error koneksi server.");
-        } finally {
-            isSubmitting = false;
+            alert(`Koneksi terputus saat upload ${type}.`);
+            revertOptimisticUI(tempId, type);
         }
     }
 
-    // --- 4. DELETE BANNER (PERBAIKAN: Tambah Parameter 'type') ---
+    // Fungsi Pembatalan jika upload gagal
+    function revertOptimisticUI(tempId, type) {
+        if (type === 'slider') {
+            sliders = sliders.filter(s => s.id !== tempId);
+        } else {
+            loadData(); // Ambil ulang data popup asli dari DB
+        }
+    }
+
+    // --- 4. DELETE BANNER ---
     async function handleDelete(id, title, type) {
         const itemName = title || 'Banner ini';
         if(!confirm(`Yakin ingin menghapus ${itemName}?`)) return;
 
         const token = localStorage.getItem("token");
         try {
-            // [KUNCI]: Kirim ?type=slider atau ?type=popup agar Backend tidak bingung!
             const res = await fetch(`${API_BASE}/banners/${id}?type=${type}`, {
                 method: "DELETE",
                 headers: { "Authorization": `Bearer ${token}` }
             });
 
             if (res.ok) {
-                // Hapus lokal biar cepat update UI
                 if (type === 'slider') {
                     sliders = sliders.filter(s => s.id !== id);
                 } else {
                     activePopup = null;
                 }
-                alert("Berhasil dihapus.");
             } else {
                 const err = await res.json();
                 alert("Gagal menghapus: " + (err.detail || "Error"));
@@ -143,6 +162,7 @@
     function resetForm() {
         formData = { title: '', link_url: '', type: 'slider', image: null };
         imagePreview = null;
+        if (fileInput) fileInput.value = '';
     }
 </script>
 
@@ -164,16 +184,26 @@
             <MonitorIcon size="20" class="text-purple-500"/> Popup Aktif
         </h3>
         
-        {#if isLoading}
+        {#if isLoading && !activePopup}
             <div class="h-48 bg-gray-100 rounded-2xl animate-pulse"></div>
         {:else if activePopup}
             <div class="bg-white p-6 rounded-3xl border border-purple-100 shadow-sm flex flex-col md:flex-row gap-6 items-start relative overflow-hidden group">
+                
+                {#if activePopup.isUploading}
+                    <div class="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center">
+                        <LoaderIcon size="32" class="animate-spin text-purple-600 mb-3"/>
+                        <p class="text-sm font-bold text-purple-800 animate-pulse">Sedang mengunggah ke server...</p>
+                    </div>
+                {/if}
+
                 <div class="absolute top-0 right-0 w-32 h-32 bg-purple-50 rounded-full blur-2xl -mr-10 -mt-10"></div>
                 
-                <button onclick={() => handleDelete(activePopup.id, activePopup.title, 'popup')} 
-                    class="absolute top-4 right-4 bg-white text-red-500 p-2 rounded-full shadow-md hover:bg-red-50 transition z-20" title="Hapus Popup">
-                    <Trash2Icon size="18"/>
-                </button>
+                {#if !activePopup.isUploading}
+                    <button onclick={() => handleDelete(activePopup.id, activePopup.title, 'popup')} 
+                        class="absolute top-4 right-4 bg-white text-red-500 p-2 rounded-full shadow-md hover:bg-red-50 transition z-20" title="Hapus Popup">
+                        <Trash2Icon size="18"/>
+                    </button>
+                {/if}
 
                 <div class="w-full md:w-64 aspect-[3/4] bg-gray-100 rounded-xl overflow-hidden shadow-md border border-gray-200 shrink-0">
                     <img src={activePopup.image_url} alt={activePopup.title} class="w-full h-full object-cover" />
@@ -209,7 +239,7 @@
             <ImageIcon size="20" class="text-blue-500"/> Slider Banner Beranda
         </h3>
 
-        {#if isLoading}
+        {#if isLoading && sliders.length === 0}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 <div class="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
                 <div class="h-40 bg-gray-100 rounded-2xl animate-pulse"></div>
@@ -217,10 +247,19 @@
         {:else if sliders.length > 0}
             <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {#each sliders as banner}
-                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition">
+                <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden group hover:shadow-md transition relative">
+                    
+                    {#if banner.isUploading}
+                        <div class="absolute inset-0 bg-white/80 backdrop-blur-sm z-30 flex flex-col items-center justify-center">
+                            <LoaderIcon size="24" class="animate-spin text-blue-600 mb-2"/>
+                            <p class="text-[10px] font-bold text-blue-800 animate-pulse uppercase tracking-wider">Mengunggah...</p>
+                        </div>
+                    {/if}
+
                     <div class="relative aspect-video bg-gray-200">
                         <img src={banner.image_url} alt="Banner Slider" class="w-full h-full object-cover" />
                         
+                        {#if !banner.isUploading}
                         <div class="absolute inset-0 bg-black/40 opacity-0 group-hover:opacity-100 transition flex items-center justify-center">
                             <button onclick={() => handleDelete(banner.id, banner.title, 'slider')} 
                                 class="bg-white text-red-500 p-2 rounded-full hover:scale-110 transition shadow-lg" 
@@ -228,6 +267,7 @@
                                 <Trash2Icon size="18"/>
                             </button>
                         </div>
+                        {/if}
                     </div>
                     <div class="p-4">
                         <h5 class="font-bold text-gray-800 line-clamp-1">{banner.title || 'Banner Promo Utama'}</h5>
@@ -300,7 +340,7 @@
                         
                         {#if imagePreview}
                             <img src={imagePreview} alt="Preview" class="h-32 object-contain rounded-lg shadow-sm" />
-                            <button type="button" onclick={removeFile} class="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-md hover:scale-110 transition"><XIcon size="14"/></button>
+                            <button type="button" onclick={(e) => { e.preventDefault(); removeFile(); }} class="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full shadow-md hover:scale-110 transition z-10"><XIcon size="14"/></button>
                             <div class="text-xs text-green-600 font-bold mt-2 flex items-center gap-1"><CheckCircleIcon size="12"/> Siap Upload</div>
                         {:else}
                             <UploadCloudIcon size="32" class="text-gray-400 mb-2"/>
@@ -314,12 +354,8 @@
 
                 <div class="pt-4 border-t border-gray-100 flex justify-end gap-3">
                     <button type="button" onclick={() => showModal = false} class="px-5 py-2.5 rounded-xl text-gray-600 font-bold hover:bg-gray-100 transition">Batal</button>
-                    <button type="submit" disabled={isSubmitting} class="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition flex items-center gap-2 disabled:opacity-70">
-                        {#if isSubmitting}
-                            <LoaderIcon size="18" class="animate-spin"/> Menyimpan...
-                        {:else}
-                            Simpan
-                        {/if}
+                    <button type="submit" class="px-6 py-2.5 rounded-xl bg-blue-600 text-white font-bold hover:bg-blue-700 transition flex items-center gap-2">
+                        Simpan & Lanjutkan
                     </button>
                 </div>
 
