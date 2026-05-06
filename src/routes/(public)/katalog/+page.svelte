@@ -1,33 +1,31 @@
 <script>
-    import { onMount } from 'svelte';
     import { fade, fly } from 'svelte/transition';
     import { page } from '$app/stores'; 
     import { goto } from '$app/navigation';
-    import { PUBLIC_API_URL } from '$env/static/public'; 
     import { FilterIcon, ChevronLeftIcon, ChevronRightIcon, XIcon, ChevronDownIcon, CheckIcon } from 'svelte-feather-icons';
 
-    // --- STATE ---
-    let products = $state([]); 
-    let isLoading = $state(true); 
+    // [BARU] Menangkap data hasil fetch dari +page.js
+    let { data } = $props(); 
     
-    // UI State
+    // [BARU] Jadikan products reactive terhadap data dari server. 
+    // Kita hapus isLoading karena halaman akan langsung muncul berkat SSR!
+    let products = $derived(data.products || []); 
+    
+    // --- UI STATE (Tetap sama seperti milik Anda) ---
     let filter = $state('all'); 
     let activeSubCategory = $state('all'); 
     let currentPage = $state(1);
     let searchTerm = $state("");
     let sortBy = $state('newest');
     
-    // State Filter Harga & Stok
     let minPrice = $state(null);
     let maxPrice = $state(null);
-    let inStockOnly = $state(false); // [BARU] Filter Stok
+    let inStockOnly = $state(false); 
     
-    // State Mobile Modal
     let isMobileFilterOpen = $state(false);
     
     const itemsPerPage = 15;
 
-    // [BARU] Hitung jumlah filter yang sedang aktif
     let activeFilterCount = $derived(
         (activeSubCategory !== 'all' ? 1 : 0) + 
         (minPrice || maxPrice ? 1 : 0) + 
@@ -45,38 +43,6 @@
         if (currentPage !== urlPage) currentPage = urlPage;
         if (filter !== urlCat) filter = urlCat;
         if (searchTerm !== urlSearch) searchTerm = urlSearch;
-    });
-
-    // --- FETCH DATA ---
-    onMount(async () => {
-        const CACHE_KEY = 'katalog_products_v8_final'; 
-        try {
-            const cachedData = sessionStorage.getItem(CACHE_KEY);
-            if (cachedData) {
-                const parsed = JSON.parse(cachedData);
-                if (Array.isArray(parsed) && parsed.length > 0) {
-                    products = parsed;
-                    isLoading = false; 
-                }
-            }
-        } catch (e) { console.error("Cache error", e); }
-
-        try {
-            const res = await fetch(`${PUBLIC_API_URL}/products/?t=${Date.now()}`); 
-            if (res.ok) {
-                const result = await res.json();
-                let finalData = [];
-                if (Array.isArray(result)) finalData = result;
-                else if (result.products) finalData = result.products;
-                else if (result.data) finalData = result.data;
-
-                if (finalData.length > 0) {
-                    products = finalData;
-                    sessionStorage.setItem(CACHE_KEY, JSON.stringify(finalData));
-                }
-            }
-        } catch (e) { console.error("Error fetch:", e); } 
-        finally { isLoading = false; }
     });
 
     // --- HELPERS ---
@@ -147,8 +113,6 @@
 
         if (minPrice) result = result.filter(p => (p.final_price || p.price || 0) >= minPrice);
         if (maxPrice) result = result.filter(p => (p.final_price || p.price || 0) <= maxPrice);
-
-        // [BARU] Logika Stok
         if (inStockOnly) result = result.filter(p => (p.stock || 0) > 0);
 
         if (sortBy === 'price_asc') result.sort((a, b) => (a.final_price || 0) - (b.final_price || 0));
@@ -257,17 +221,7 @@
 
     <div class="container mx-auto px-4 max-w-[1200px] pt-2">
         
-        {#if isLoading && products.length === 0}
-            <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-4 mb-10">
-                {#each Array(10) as _}
-                    <div class="flex flex-col gap-3">
-                        <div class="w-full aspect-[3/4] bg-gray-100 rounded-xl animate-pulse"></div>
-                        <div class="h-4 w-3/4 bg-gray-100 rounded animate-pulse"></div>
-                    </div>
-                {/each}
-            </div>
-
-        {:else if visibleProducts.length > 0}
+        {#if visibleProducts.length > 0}
             
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 text-[10px] md:text-xs text-gray-500 pb-4 border-b border-gray-50 w-full">
                 
@@ -386,7 +340,7 @@
             <div class="text-center py-24">
                 <div class="inline-block p-4 rounded-full bg-gray-50 mb-3"><FilterIcon size="32" class="text-gray-300"/></div>
                 <h3 class="text-sm font-bold text-gray-500 mb-2">
-                    {#if isLoading} Memuat produk... {:else} Tidak ada produk ditemukan {/if}
+                    Tidak ada produk ditemukan
                 </h3>
                 {#if searchTerm || minPrice || maxPrice || filter !== 'all' || activeSubCategory !== 'all' || inStockOnly}
                     <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Hapus Semua Filter</button>
