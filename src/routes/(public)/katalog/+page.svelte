@@ -2,48 +2,36 @@
     import { fade, fly } from 'svelte/transition';
     import { page } from '$app/stores'; 
     import { goto } from '$app/navigation';
-    import { FilterIcon, ChevronLeftIcon, ChevronRightIcon, XIcon, ChevronDownIcon, CheckIcon } from 'svelte-feather-icons';
+    import { FilterIcon, ChevronLeftIcon, ChevronRightIcon, XIcon, ChevronDownIcon } from 'svelte-feather-icons';
 
-    // [BARU] Menangkap data hasil fetch dari +page.js
+    // ==========================================
+    // 1. TERIMA DATA MATANG DARI +page.js (FASTAPI)
+    // ==========================================
     let { data } = $props(); 
     
-    // [BARU] Jadikan products reactive terhadap data dari server. 
-    // Kita hapus isLoading karena halaman akan langsung muncul berkat SSR!
+    // Langsung gunakan data yang sudah di-limit 15 oleh Backend
     let products = $derived(data.products || []); 
+    let totalPages = $derived(data.totalPages || 1);
+    let currentPage = $derived(data.currentPage || 1);
+    let totalItems = $derived(data.totalItems || 0);
     
-    // --- UI STATE (Tetap sama seperti milik Anda) ---
-    let filter = $state('all'); 
-    let activeSubCategory = $state('all'); 
-    let currentPage = $state(1);
-    let searchTerm = $state("");
-    let sortBy = $state('newest');
-    
-    let minPrice = $state(null);
-    let maxPrice = $state(null);
-    let inStockOnly = $state(false); 
+    // [SOLUSI ALKITAB HILANG]: Ambil subkategori dari daftar total database!
+    let availableSubcategories = $derived(data.allSubcategories || []);
+
+    // ==========================================
+    // 2. STATE UI (Disinkronkan dengan parameter URL)
+    // ==========================================
+    let filter = $state(data.filters?.category || 'all'); 
+    let activeSubCategory = $state(data.filters?.subcategory || 'all'); 
+    let searchTerm = $state(data.filters?.search || "");
+    let sortBy = $state(data.filters?.sort || 'newest');
     
     let isMobileFilterOpen = $state(false);
-    
-    const itemsPerPage = 15;
 
     let activeFilterCount = $derived(
         (activeSubCategory !== 'all' ? 1 : 0) + 
-        (minPrice || maxPrice ? 1 : 0) + 
-        (sortBy !== 'newest' ? 1 : 0) +
-        (inStockOnly ? 1 : 0)
+        (sortBy !== 'newest' ? 1 : 0)
     );
-
-    // --- SYNC URL ---
-    $effect(() => {
-        const params = $page.url.searchParams;
-        const urlPage = parseInt(params.get('page') || '1');
-        const urlCat = params.get('category') || 'all';
-        const urlSearch = params.get('search') || '';
-
-        if (currentPage !== urlPage) currentPage = urlPage;
-        if (filter !== urlCat) filter = urlCat;
-        if (searchTerm !== urlSearch) searchTerm = urlSearch;
-    });
 
     // --- HELPERS ---
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
@@ -57,111 +45,50 @@
         { id: 'buku', label: 'Buku' }
     ];
 
-    const BIBLE_KEYWORDS = ['alkitab', 'kitab suci', 'injil', 'bible'];
-    const BOOK_KEYWORDS = ['buku', 'renungan', 'kamus', 'tafsir', 'kidung', 'puji syukur', 'madah', 'novena'];
-
-    // --- LOGIC 1: SUBKATEGORI DINAMIS ---
-    let availableSubcategories = $derived.by(() => {
-        if (!products || products.length === 0) return [];
-        let relevantProducts = products;
-        if (filter !== 'all') {
-            relevantProducts = products.filter(item => {
-                const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
-                const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
-                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; 
-                if (filter === 'alkitab') return isBible;
-                if (filter === 'buku') return isBook;
-                if (filter === 'rohani') return !isBible && !isBook; 
-                return true;
-            });
-        }
-        const subs = new Set();
-        relevantProducts.forEach(p => {
-            if (p.subcategory && p.subcategory.trim() !== "") {
-                const label = p.subcategory.charAt(0).toUpperCase() + p.subcategory.slice(1);
-                subs.add(label);
-            }
-        });
-        return Array.from(subs).sort();
-    });
-
-    // --- LOGIC 2: FILTERING & SORTING ---
-    let allFilteredProducts = $derived.by(() => {
-        if (!products || products.length === 0) return [];
-        let result = [...products];
-
-        if (searchTerm) {
-            const q = searchTerm.toLowerCase();
-            result = result.filter(p => (p.name && p.name.toLowerCase().includes(q)) || (p.slug && p.slug.toLowerCase().includes(q)));
-        }
-
-        if (filter !== 'all') {
-            result = result.filter(item => {
-                const text = ((item.name || "") + " " + (item.slug || "") + " " + (item.category || "")).toLowerCase();
-                const isBible = BIBLE_KEYWORDS.some(kw => text.includes(kw));
-                const isBook = BOOK_KEYWORDS.some(kw => text.includes(kw)) && !isBible; 
-                if (filter === 'alkitab') return isBible;
-                if (filter === 'buku') return isBook;
-                if (filter === 'rohani') return !isBible && !isBook; 
-                return true;
-            });
-        }
-
-        if (activeSubCategory !== 'all') {
-            result = result.filter(p => p.subcategory && p.subcategory.toLowerCase() === activeSubCategory.toLowerCase());
-        }
-
-        if (minPrice) result = result.filter(p => (p.final_price || p.price || 0) >= minPrice);
-        if (maxPrice) result = result.filter(p => (p.final_price || p.price || 0) <= maxPrice);
-        if (inStockOnly) result = result.filter(p => (p.stock || 0) > 0);
-
-        if (sortBy === 'price_asc') result.sort((a, b) => (a.final_price || 0) - (b.final_price || 0));
-        else if (sortBy === 'price_desc') result.sort((a, b) => (b.final_price || 0) - (a.final_price || 0));
-        else if (sortBy === 'oldest') result.sort((a, b) => (a.id || 0) - (b.id || 0));
-        else result.sort((a, b) => (b.id || 0) - (a.id || 0));
-
-        return result;
-    });
-
-    let totalPages = $derived(Math.ceil(allFilteredProducts.length / itemsPerPage));
-    let visibleProducts = $derived.by(() => {
-        const startIndex = (currentPage - 1) * itemsPerPage;
-        return allFilteredProducts.slice(startIndex, startIndex + itemsPerPage);
-    });
-
-    // --- ACTIONS ---
-    function updateUrl(newParams) {
+    // ==========================================
+    // 3. FUNGSI MASTER: MENGUBAH URL UNTUK MEMICU BACKEND
+    // ==========================================
+    function applyFilters(overridePage = 1) {
         const url = new URL($page.url);
-        if (newParams.page) url.searchParams.set('page', newParams.page);
-        if (newParams.category) url.searchParams.set('category', newParams.category);
-        goto(url.toString(), { keepFocus: true, noScroll: true });
+        
+        url.searchParams.set('page', overridePage);
+        
+        if (filter !== 'all') url.searchParams.set('category', filter);
+        else url.searchParams.delete('category');
+
+        if (activeSubCategory !== 'all') url.searchParams.set('subcategory', activeSubCategory);
+        else url.searchParams.delete('subcategory');
+
+        if (searchTerm) url.searchParams.set('q', searchTerm);
+        else url.searchParams.delete('q');
+
+        if (sortBy !== 'newest') url.searchParams.set('sort', sortBy);
+        else url.searchParams.delete('sort');
+
+        // Meluncur ke URL baru, SvelteKit akan otomatis memanggil ulang +page.js!
+        goto(url.toString(), { keepFocus: true, noScroll: false });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
     }
 
+    // --- ACTIONS MENGGUNAKAN FUNGSI MASTER ---
     function changeCategory(id) {
         filter = id;
         activeSubCategory = 'all'; 
-        currentPage = 1; 
-        updateUrl({ category: id, page: 1 });
+        applyFilters(1);
     }
 
     function changePage(newPage) {
         if (newPage >= 1 && newPage <= totalPages) {
-            updateUrl({ page: newPage, category: filter });
-            window.scrollTo({ top: 0, behavior: 'instant' }); 
+            applyFilters(newPage);
         }
     }
 
     function resetFilter() {
-        const url = new URL($page.url);
-        url.searchParams.delete('search');
-        url.searchParams.set('category', 'all');
-        minPrice = null; 
-        maxPrice = null; 
-        inStockOnly = false;
         filter = 'all';
         activeSubCategory = 'all';
+        searchTerm = '';
         sortBy = 'newest';
-        goto(url.toString());
+        applyFilters(1);
     }
 
     function getDiscountLabel(item) {
@@ -189,16 +116,6 @@
         -moz-appearance: none;
         appearance: none;
     }
-    input[type="number"]::-webkit-inner-spin-button,
-    input[type="number"]::-webkit-outer-spin-button {
-        -webkit-appearance: none;
-        margin: 0;
-    }
-    input[type="number"] { -moz-appearance: textfield; }
-
-    /* CSS Sakelar Geser (Toggle) */
-    .toggle-checkbox:checked { right: 0; border-color: #68D391; }
-    .toggle-checkbox:checked + .toggle-label { background-color: #2D3748; }
 </style>
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8" style="font-family: 'Poppins', sans-serif !important;">
@@ -221,7 +138,7 @@
 
     <div class="container mx-auto px-4 max-w-[1200px] pt-2">
         
-        {#if visibleProducts.length > 0}
+        {#if products.length > 0}
             
             <div class="flex flex-col lg:flex-row justify-between items-start lg:items-center mb-6 gap-4 text-[10px] md:text-xs text-gray-500 pb-4 border-b border-gray-50 w-full">
                 
@@ -229,11 +146,11 @@
                     {#if searchTerm}
                         <span class="whitespace-nowrap flex-shrink-0">Pencarian:</span>
                         <span class="text-[#C4161C] font-bold not-italic truncate max-w-[100px]">"{searchTerm}"</span>
-                        <button onclick={() => {searchTerm = ''; resetFilter();}} class="ml-2 p-1 bg-gray-100 rounded-full hover:bg-red-100 hover:text-red-500 transition">
+                        <button onclick={resetFilter} class="ml-2 p-1 bg-gray-100 rounded-full hover:bg-red-100 hover:text-red-500 transition">
                             <XIcon size="12"/>
                         </button>
                     {:else}
-                        <span>Menampilkan {allFilteredProducts.length} produk</span>
+                        <span>Menampilkan {totalItems} produk</span>
                     {/if}
                 </div>
 
@@ -249,21 +166,12 @@
                             </span>
                         {/if}
                     </button>
-
-                    <button 
-                        onclick={() => inStockOnly = !inStockOnly} 
-                        class="flex items-center gap-1.5 border rounded-full px-4 py-2 text-xs font-bold transition flex-shrink-0
-                        {inStockOnly ? 'bg-gray-800 border-gray-800 text-white' : 'bg-gray-50 border-gray-200 text-gray-600'}"
-                    >
-                        {#if inStockOnly} <XIcon size="12"/> {/if}
-                        Stok Tersedia
-                    </button>
                 </div>
 
                 <div class="hidden lg:flex flex-row items-center justify-end gap-3">
                     {#if availableSubcategories.length > 0}
                     <div class="relative w-40" in:fade>
-                        <select bind:value={activeSubCategory} onchange={() => currentPage = 1} class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs cursor-pointer hover:border-gray-300">
+                        <select bind:value={activeSubCategory} onchange={() => applyFilters(1)} class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs cursor-pointer hover:border-gray-300">
                             <option value="all">Semua Kategori</option>
                             {#each availableSubcategories as sub} <option value={sub}>{sub}</option> {/each}
                         </select>
@@ -271,20 +179,8 @@
                     </div>
                     {/if}
 
-                    <div class="flex items-center gap-2">
-                        <div class="relative w-32">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-xs">Rp</span>
-                            <input type="number" value={minPrice || ''} onchange={(e) => minPrice = e.target.value ? Number(e.target.value) : null} placeholder="Min" class="w-full bg-white border border-gray-200 text-gray-700 py-2.5 pl-8 pr-3 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs hover:border-gray-300">
-                        </div>
-                        <span class="text-gray-300 font-bold">-</span>
-                        <div class="relative w-32">
-                            <span class="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 font-medium text-xs">Rp</span>
-                            <input type="number" value={maxPrice || ''} onchange={(e) => maxPrice = e.target.value ? Number(e.target.value) : null} placeholder="Max" class="w-full bg-white border border-gray-200 text-gray-700 py-2.5 pl-8 pr-3 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs hover:border-gray-300">
-                        </div>
-                    </div>
-
                     <div class="relative w-44">
-                        <select bind:value={sortBy} class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs cursor-pointer hover:border-gray-300">
+                        <select bind:value={sortBy} onchange={() => applyFilters(1)} class="custom-select w-full appearance-none bg-white border border-gray-200 text-gray-700 py-2.5 pl-4 pr-8 rounded-xl shadow-sm focus:ring-2 focus:ring-[#C4161C] font-semibold text-xs cursor-pointer hover:border-gray-300">
                             <option value="newest">Urutkan: Terbaru</option>
                             <option value="price_asc">Termurah</option>
                             <option value="price_desc">Termahal</option>
@@ -296,7 +192,7 @@
             </div>
 
             <div class="grid grid-cols-2 md:grid-cols-4 lg:grid-cols-5 gap-x-4 gap-y-8 md:gap-y-10 mb-10" in:fade={{duration: 200}}>
-                {#each visibleProducts as item (item.id || item.name)}
+                {#each products as item (item.id || item.name)}
                     {@const diskonVal = getDiscountLabel(item)}
                     <a href="/produk/{item.slug}" class="group relative flex flex-col h-full cursor-pointer hover:-translate-y-1 transition-transform duration-300">
                         <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
@@ -342,9 +238,7 @@
                 <h3 class="text-sm font-bold text-gray-500 mb-2">
                     Tidak ada produk ditemukan
                 </h3>
-                {#if searchTerm || minPrice || maxPrice || filter !== 'all' || activeSubCategory !== 'all' || inStockOnly}
-                    <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Hapus Semua Filter</button>
-                {/if}
+                <button onclick={resetFilter} class="mt-2 text-xs text-[#C4161C] hover:text-red-700 font-bold underline">Hapus Semua Filter</button>
             </div>
         {/if}
     </div>
@@ -361,7 +255,7 @@
         <div class="px-5 py-4 flex justify-between items-center border-b border-gray-50">
             <h2 class="font-bold text-gray-900 text-lg">Filter</h2>
             {#if activeFilterCount > 0}
-                <button onclick={resetFilter} class="text-xs font-bold text-gray-400 hover:text-red-500">Reset</button>
+                <button onclick={() => { resetFilter(); isMobileFilterOpen = false; }} class="text-xs font-bold text-gray-400 hover:text-red-500">Reset</button>
             {/if}
         </div>
         
@@ -402,35 +296,10 @@
             </div>
             {/if}
 
-            <div>
-                <h3 class="font-bold text-gray-800 mb-3 text-sm">Harga</h3>
-                <div class="flex items-center gap-3">
-                    <div class="relative flex-1">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
-                        <input type="number" value={minPrice || ''} onchange={(e) => minPrice = e.target.value ? Number(e.target.value) : null} placeholder="Min" class="w-full border border-gray-200 rounded-2xl py-3 pl-9 pr-3 text-sm font-semibold focus:border-gray-400 outline-none text-gray-800 placeholder-gray-300">
-                    </div>
-                    <div class="relative flex-1">
-                        <span class="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-bold text-xs">Rp</span>
-                        <input type="number" value={maxPrice || ''} onchange={(e) => maxPrice = e.target.value ? Number(e.target.value) : null} placeholder="Max" class="w-full border border-gray-200 rounded-2xl py-3 pl-9 pr-3 text-sm font-semibold focus:border-gray-400 outline-none text-gray-800 placeholder-gray-300">
-                    </div>
-                </div>
-            </div>
-
-            <div class="pb-2">
-                <h3 class="font-bold text-gray-800 mb-3 text-sm">Stok</h3>
-                <label class="flex items-center justify-between cursor-pointer p-4 border border-gray-100 rounded-2xl bg-gray-50">
-                    <span class="text-sm font-bold text-gray-700">Hanya yang tersedia</span>
-                    <div class="relative">
-                        <input type="checkbox" bind:checked={inStockOnly} class="sr-only peer">
-                        <div class="w-11 h-6 bg-gray-300 rounded-full peer peer-checked:bg-[#C4161C] transition-colors duration-300"></div>
-                        <div class="absolute top-[2px] left-[2px] bg-white border-gray-300 border h-5 w-5 rounded-full transition-transform duration-300 peer-checked:translate-x-full peer-checked:border-white shadow-sm"></div>
-                    </div>
-                </label>
-            </div>
         </div>
         
         <div class="p-5 border-t border-gray-100 bg-white shadow-[0_-4px_10px_rgba(0,0,0,0.02)]">
-            <button onclick={() => isMobileFilterOpen = false} class="w-full bg-[#C4161C] text-white font-bold py-3.5 rounded-2xl text-sm transition-transform active:scale-[0.98] shadow-md shadow-red-200">
+            <button onclick={() => { applyFilters(1); isMobileFilterOpen = false; }} class="w-full bg-[#C4161C] text-white font-bold py-3.5 rounded-2xl text-sm transition-transform active:scale-[0.98] shadow-md shadow-red-200">
                 Terapkan Filter
             </button>
         </div>
