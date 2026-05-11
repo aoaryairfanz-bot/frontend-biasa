@@ -13,7 +13,7 @@
             const currentQuery = searchQuery.trim();
             // [PERBAIKAN]: Menggunakan 'q=' agar serasi dengan sistem Paginasi
             if (currentQuery !== "") {
-                goto(`/katalog?q=${encodeURIComponent(currentQuery)}`);
+                goto(`/produk?q=${encodeURIComponent(currentQuery)}`);
             }
         }
 
