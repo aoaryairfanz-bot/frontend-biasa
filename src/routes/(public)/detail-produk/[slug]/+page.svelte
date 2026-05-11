@@ -155,7 +155,7 @@
         <div class="border-b border-gray-50 bg-white">
             <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-400 flex items-center">
                 <a href="/" class="hover:text-gray-900 transition-colors">Home</a> <span class="mx-2">/</span> 
-                <a href="/katalog" class="hover:text-gray-900 transition-colors">Katalog</a> <span class="mx-2">/</span> 
+                <a href="/produk" class="hover:text-gray-900 transition-colors">Produk</a> <span class="mx-2">/</span> 
                 <span class="text-gray-900 truncate font-semibold">{product.name}</span>
             </div>
         </div>
