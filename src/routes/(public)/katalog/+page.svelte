@@ -9,13 +9,10 @@
     // ==========================================
     let { data } = $props(); 
     
-    // Langsung gunakan data yang sudah di-limit 15 oleh Backend
     let products = $derived(data.products || []); 
     let totalPages = $derived(data.totalPages || 1);
     let currentPage = $derived(data.currentPage || 1);
     let totalItems = $derived(data.totalItems || 0);
-    
-    // [SOLUSI ALKITAB HILANG]: Ambil subkategori dari daftar total database!
     let availableSubcategories = $derived(data.allSubcategories || []);
 
     // ==========================================
@@ -33,19 +30,6 @@
         (sortBy !== 'newest' ? 1 : 0)
     );
 
-    // --- HELPERS ---
-    const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
-    const formatRupiah = (num) => rupiahFormatter.format(num || 0);
-    
-    // [PERBAIKAN JITU]: Mengaktifkan kompresi Cloudinary (Lebar 500px, Kualitas Auto/Eco, Format WebP)
-    const optimizeUrl = (url) => {
-        if (!url) return "";
-        if (url.includes("cloudinary.com") && !url.includes("q_auto")) {
-            return url.replace("/upload/", "/upload/w_500,q_auto:eco,f_auto/");
-        }
-        return url;
-    }; 
-
     // --- [PERBAIKAN VITAL]: Pemetaan Kategori & Subkategori ---
     const filterOptions = [
         { label: 'Semua', cat: 'all', sub: 'all' },
@@ -54,11 +38,10 @@
         { label: 'Buku', cat: 'book', sub: 'all' }
     ];
 
-    // --- HELPERS ---
+    // --- HELPERS (SUDAH DIBERSIHKAN DARI DUPLIKAT) ---
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num || 0);
     
-    // [PERBAIKAN]: Mengaktifkan kompresi Cloudinary
     const optimizeUrl = (url) => {
         if (!url) return "";
         if (url.includes("cloudinary.com") && !url.includes("q_auto")) {
@@ -67,11 +50,41 @@
         return url;
     }; 
 
+    // ==========================================
+    // 3. FUNGSI MASTER: MENGUBAH URL UNTUK MEMICU BACKEND
+    // ==========================================
+    function applyFilters(overridePage = 1) {
+        const url = new URL($page.url);
+        
+        url.searchParams.set('page', overridePage);
+        
+        if (filter !== 'all') url.searchParams.set('category', filter);
+        else url.searchParams.delete('category');
+
+        if (activeSubCategory !== 'all') url.searchParams.set('subcategory', activeSubCategory);
+        else url.searchParams.delete('subcategory');
+
+        if (searchTerm) url.searchParams.set('q', searchTerm);
+        else url.searchParams.delete('q');
+
+        if (sortBy !== 'newest') url.searchParams.set('sort', sortBy);
+        else url.searchParams.delete('sort');
+
+        goto(url.toString(), { keepFocus: true, noScroll: false });
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
     // --- ACTIONS ---
     function changeCategory(opt) {
         filter = opt.cat;
         activeSubCategory = opt.sub;
-        applyFilters(1); // Memicu update URL
+        applyFilters(1);
+    }
+
+    function changePage(newPage) {
+        if (newPage >= 1 && newPage <= totalPages) {
+            applyFilters(newPage);
+        }
     }
 
     function resetFilter() {
@@ -90,24 +103,6 @@
         return 0;
     }
 </script>
-
-<svelte:head>
-    <title>Katalog Produk - Narwastu</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-</svelte:head>
-
-<style>
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    .custom-select {
-        background-image: none;
-        -webkit-appearance: none;
-        -moz-appearance: none;
-        appearance: none;
-    }
-</style>
 
 <div class="min-h-screen bg-white pb-20 font-sans pt-4 md:pt-8" style="font-family: 'Poppins', sans-serif !important;">
     
