@@ -10,25 +10,22 @@
     let lastSearchedQuery = $state("");
 
     function handleSearch() {
-        const currentQuery = searchQuery.trim();
-        
-        // Hanya memicu backend jika kotaknya tidak kosong dan kata kuncinya baru
-        if (currentQuery !== "" && currentQuery !== lastSearchedQuery) {
-            lastSearchedQuery = currentQuery;
-            goto(`/katalog?q=${encodeURIComponent(currentQuery)}`);
+            const currentQuery = searchQuery.trim();
+            // [PERBAIKAN]: Menggunakan 'q=' agar serasi dengan sistem Paginasi
+            if (currentQuery !== "") {
+                goto(`/katalog?q=${encodeURIComponent(currentQuery)}`);
+            }
         }
-    }
 
-    function handleKeyDown(event) {
-        if (event.key === 'Enter') {
-            event.target.blur(); // Menutup keyboard HP secara otomatis saat Enter ditekan
-            handleSearch();
+        function handleKeyDown(event) {
+            if (event.key === 'Enter') {
+                event.target.blur(); // Tutup keyboard di HP
+                handleSearch();
+            }
         }
-    }
-
     const mobileMenus = [
         { label: 'Home', link: '/', icon: HomeIcon },
-        { label: 'Produk', link: '/katalog', icon: ShoppingBagIcon },
+        { label: 'Produk', link: '/produk', icon: ShoppingBagIcon },
         { label: 'Kontak', link: '/kontak', icon: MessageCircleIcon },
         { label: 'Bantuan', link: '/bantuan', icon: HelpCircleIcon }
     ];
@@ -66,22 +63,22 @@
             </span>
         </a>
 
-        <div class="flex-grow max-w-xl md:mx-4">
+        <div class="flex-grow max-w-md md:mx-4">
             <input 
                 type="text" 
                 bind:value={searchQuery}
                 onkeydown={handleKeyDown}
                 onblur={handleSearch}
-                placeholder="Cari produk..." 
-                class="w-full bg-white text-gray-800 text-xs md:text-sm py-2.5 px-6 border border-gray-300 hover:border-gray-400 focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-400 transition-all duration-300 rounded-full shadow-sm placeholder-gray-400"
+                placeholder="Cari..." 
+                class="w-full bg-white/20 backdrop-blur-md text-gray-800 text-[11px] md:text-xs py-1.5 px-5 border border-white/30 hover:bg-white/30 focus:outline-none focus:ring-2 focus:ring-white/40 focus:border-white/50 transition-all duration-500 rounded-full placeholder-gray-500/70 shadow-sm"
                 aria-label="Kolom Pencarian"
             />
         </div>
 
         <nav class="hidden md:flex items-center flex-shrink-0 gap-6">
             <div class="flex gap-6 text-sm font-semibold {isHome && !isScrolled ? 'text-gray-800 drop-shadow-md' : 'text-gray-600'}">
-                <a href="/katalog" class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/katalog') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
-                    Katalog
+                <a href="/produk" class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/produk') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
+                    Produk
                 </a>
                 <a href="/kontak" class="transition-all duration-300 capitalize {$page.url.pathname.startsWith('/kontak') ? 'text-[#C4161C]' : 'hover:text-[#C4161C]'}">
                     Kontak
@@ -93,7 +90,7 @@
 
             <div class="h-5 w-px bg-gray-300/50"></div>
 
-            <a href="/katalog" class="text-xs font-bold text-white bg-[#C4161C] hover:bg-[#a51318] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-red-900/20 active:scale-95 tracking-wide">
+            <a href="/produk" class="text-xs font-bold text-white bg-[#C4161C] hover:bg-[#a51318] px-5 py-2.5 rounded-xl transition-all shadow-lg shadow-red-900/20 active:scale-95 tracking-wide">
                 Belanja
             </a>
         </nav>

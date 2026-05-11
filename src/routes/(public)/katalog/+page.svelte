@@ -46,49 +46,32 @@
         return url;
     }; 
 
+    // --- [PERBAIKAN VITAL]: Pemetaan Kategori & Subkategori ---
     const filterOptions = [
-        { id: 'all', label: 'Semua' },
-        { id: 'rohani', label: 'Perlengkapan Rohani' },
-        { id: 'alkitab', label: 'Alkitab' },
-        { id: 'buku', label: 'Buku' }
+        { label: 'Semua', cat: 'all', sub: 'all' },
+        { label: 'Perlengkapan Rohani', cat: 'nonbook', sub: 'all' },
+        { label: 'Alkitab', cat: 'all', sub: 'alkitab' },
+        { label: 'Buku', cat: 'book', sub: 'all' }
     ];
 
-    // ==========================================
-    // 3. FUNGSI MASTER: MENGUBAH URL UNTUK MEMICU BACKEND
-    // ==========================================
-    function applyFilters(overridePage = 1) {
-        const url = new URL($page.url);
-        
-        url.searchParams.set('page', overridePage);
-        
-        if (filter !== 'all') url.searchParams.set('category', filter);
-        else url.searchParams.delete('category');
-
-        if (activeSubCategory !== 'all') url.searchParams.set('subcategory', activeSubCategory);
-        else url.searchParams.delete('subcategory');
-
-        if (searchTerm) url.searchParams.set('q', searchTerm);
-        else url.searchParams.delete('q');
-
-        if (sortBy !== 'newest') url.searchParams.set('sort', sortBy);
-        else url.searchParams.delete('sort');
-
-        // Meluncur ke URL baru, SvelteKit akan otomatis memanggil ulang +page.js!
-        goto(url.toString(), { keepFocus: true, noScroll: false });
-        window.scrollTo({ top: 0, behavior: 'smooth' });
-    }
-
-    // --- ACTIONS MENGGUNAKAN FUNGSI MASTER ---
-    function changeCategory(id) {
-        filter = id;
-        activeSubCategory = 'all'; 
-        applyFilters(1);
-    }
-
-    function changePage(newPage) {
-        if (newPage >= 1 && newPage <= totalPages) {
-            applyFilters(newPage);
+    // --- HELPERS ---
+    const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
+    const formatRupiah = (num) => rupiahFormatter.format(num || 0);
+    
+    // [PERBAIKAN]: Mengaktifkan kompresi Cloudinary
+    const optimizeUrl = (url) => {
+        if (!url) return "";
+        if (url.includes("cloudinary.com") && !url.includes("q_auto")) {
+            return url.replace("/upload/", "/upload/w_500,q_auto:eco,f_auto/");
         }
+        return url;
+    }; 
+
+    // --- ACTIONS ---
+    function changeCategory(opt) {
+        filter = opt.cat;
+        activeSubCategory = opt.sub;
+        applyFilters(1); // Memicu update URL
     }
 
     function resetFilter() {
@@ -133,9 +116,9 @@
             <div class="flex gap-4 md:gap-8 overflow-x-auto scrollbar-hide w-full md:w-auto justify-start md:justify-center px-2 pb-1 items-center snap-x">
                 {#each filterOptions as opt}
                 <button 
-                    onclick={() => changeCategory(opt.id)}
+                    onclick={() => changeCategory(opt)}
                     class="pb-2 text-[11px] md:text-sm font-bold tracking-wider transition-all duration-200 border-b-[3px] whitespace-nowrap flex-shrink-0 px-2 snap-start
-                    {filter === opt.id ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
+                    {(filter === opt.cat && activeSubCategory === opt.sub) ? 'border-[#C4161C] text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'}"
                 >
                     {opt.label}
                 </button>
