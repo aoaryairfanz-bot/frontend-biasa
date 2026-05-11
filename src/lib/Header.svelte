@@ -1,21 +1,27 @@
 <script>
     import { page } from '$app/stores';
-    import { goto } from '$app/navigation'; 
-    import { HomeIcon, ShoppingBagIcon, MessageCircleIcon, HelpCircleIcon, SearchIcon } from 'svelte-feather-icons';
+    import { goto } from '$app/navigation';
+    import { HomeIcon, ShoppingBagIcon, MessageCircleIcon, HelpCircleIcon } from 'svelte-feather-icons';
 
     let searchQuery = $state(""); 
-    
-    // [BARU] State untuk melacak posisi gulir (scroll) layar
     let scrollY = $state(0); 
+    
+    // [BARU] Menyimpan jejak kata kunci terakhir agar tidak terus-menerus mencari saat tidak ada perubahan
+    let lastSearchedQuery = $state("");
 
     function handleSearch() {
-        if (searchQuery.trim() !== "") {
-            goto(`/katalog?search=${encodeURIComponent(searchQuery)}`);
+        const currentQuery = searchQuery.trim();
+        
+        // Hanya memicu backend jika kotaknya tidak kosong dan kata kuncinya baru
+        if (currentQuery !== "" && currentQuery !== lastSearchedQuery) {
+            lastSearchedQuery = currentQuery;
+            goto(`/katalog?q=${encodeURIComponent(currentQuery)}`);
         }
     }
 
     function handleKeyDown(event) {
         if (event.key === 'Enter') {
+            event.target.blur(); // Menutup keyboard HP secara otomatis saat Enter ditekan
             handleSearch();
         }
     }
@@ -29,7 +35,6 @@
 
     const logoUrl = "https://res.cloudinary.com/dqyztrelw/image/upload/w_64,q_auto:eco,f_auto/v1766051198/favicon_jgz09p.png";
 
-    // [BARU] Deteksi cerdas: Apakah ini Beranda? Dan apakah sudah di-scroll?
     let isHome = $derived($page.url.pathname === '/');
     let isScrolled = $derived(scrollY > 30);
 </script>
@@ -62,23 +67,15 @@
         </a>
 
         <div class="flex-grow max-w-xl md:mx-4">
-            <div class="relative group">
-                <input 
-                    type="text" 
-                    bind:value={searchQuery}
-                    onkeydown={handleKeyDown}
-                    placeholder="Cari..." 
-                    class="w-full bg-white/60 backdrop-blur-sm text-gray-800 text-xs md:text-sm py-2.5 px-4 pl-4 pr-10 border border-gray-200/50 focus:outline-none focus:ring-2 focus:ring-[#C4161C]/30 focus:border-[#C4161C]/50 focus:bg-white transition-all duration-300 rounded-xl shadow-inner placeholder-gray-500"
-                    aria-label="Kolom Pencarian"
-                />
-                <button 
-                    onclick={handleSearch}
-                    aria-label="Tombol Cari"
-                    class="absolute right-1 top-1/2 transform -translate-y-1/2 p-1.5 bg-[#C4161C] text-white hover:bg-[#a51318] transition shadow-sm active:scale-90 rounded-lg"
-                >
-                    <SearchIcon size="14" />
-                </button>
-            </div>
+            <input 
+                type="text" 
+                bind:value={searchQuery}
+                onkeydown={handleKeyDown}
+                onblur={handleSearch}
+                placeholder="Cari produk..." 
+                class="w-full bg-white text-gray-800 text-xs md:text-sm py-2.5 px-6 border border-gray-300 hover:border-gray-400 focus:outline-none focus:ring-4 focus:ring-gray-100 focus:border-gray-400 transition-all duration-300 rounded-full shadow-sm placeholder-gray-400"
+                aria-label="Kolom Pencarian"
+            />
         </div>
 
         <nav class="hidden md:flex items-center flex-shrink-0 gap-6">

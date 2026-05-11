@@ -36,7 +36,15 @@
     // --- HELPERS ---
     const rupiahFormatter = new Intl.NumberFormat('id-ID', { style: 'currency', currency: 'IDR', minimumFractionDigits: 0 });
     const formatRupiah = (num) => rupiahFormatter.format(num || 0);
-    const optimizeUrl = (url) => url; 
+    
+    // [PERBAIKAN JITU]: Mengaktifkan kompresi Cloudinary (Lebar 500px, Kualitas Auto/Eco, Format WebP)
+    const optimizeUrl = (url) => {
+        if (!url) return "";
+        if (url.includes("cloudinary.com") && !url.includes("q_auto")) {
+            return url.replace("/upload/", "/upload/w_500,q_auto:eco,f_auto/");
+        }
+        return url;
+    }; 
 
     const filterOptions = [
         { id: 'all', label: 'Semua' },
