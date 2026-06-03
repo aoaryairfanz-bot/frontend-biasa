@@ -50,10 +50,10 @@
 
     // Data Kategori Gambar Statis Baginda
     const mainCategories = [
-        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/produk?category=rohani', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
-        { id: 'alkitab', label: 'Alkitab', link: '/produk?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
-        { id: 'buku', label: 'Buku', link: '/produk?category=buku', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
-        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/produk?search=sekolah%20minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
+        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/produk?category=nonbook&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
+        { id: 'alkitab', label: 'Alkitab', link: '/produk?page=1&subcategory=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
+        { id: 'buku', label: 'Buku', link: '/produk?category=book&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
+        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/produk?page=1&subcategory=Sekolah+Minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
     ];
 
     // --- FETCH DATA ---
@@ -277,7 +277,7 @@
                     <ChevronLeftIcon size="20" />
                 </button>
 
-                <div bind:this={promoScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                <div bind:this={promoScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] -mx-4 px-4 md:mx-0 md:px-2">
                     {#each bestPromos as item}
                         <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
                     {/each}
@@ -309,7 +309,7 @@
                     <ChevronLeftIcon size="20" />
                 </button>
 
-                <div bind:this={newScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                <div bind:this={newScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] -mx-4 px-4 md:mx-0 md:px-2">
                     {#if loadingProducts && products.length === 0}
                         {#each Array(6) as _}
                             <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px] flex flex-col gap-2">
@@ -350,7 +350,7 @@
                     <ChevronLeftIcon size="20" />
                 </button>
 
-                <div bind:this={bestScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x scrollbar-hide -mx-4 px-4 md:mx-0 md:px-2">
+                <div bind:this={bestScrollNode} class="flex gap-4 md:gap-6 overflow-x-auto pb-4 snap-x [&::-webkit-scrollbar]:hidden [-ms-overflow-style:none] [scrollbar-width:none] -mx-4 px-4 md:mx-0 md:px-2">
                     {#each bestSellers as item}
                         <div class="snap-start flex-shrink-0 w-[160px] md:w-[200px]">{@render productCard(item)}</div>
                     {/each}
