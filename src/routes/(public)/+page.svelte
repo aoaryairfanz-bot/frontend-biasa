@@ -50,10 +50,10 @@
 
     // Data Kategori Gambar Statis Baginda
     const mainCategories = [
-        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/katalog?category=rohani', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
-        { id: 'alkitab', label: 'Alkitab', link: '/katalog?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
-        { id: 'buku', label: 'Buku', link: '/katalog?category=buku', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
-        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/katalog?search=sekolah%20minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
+        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/produk?category=rohani', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
+        { id: 'alkitab', label: 'Alkitab', link: '/produk?category=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
+        { id: 'buku', label: 'Buku', link: '/produk?category=buku', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
+        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/produk?search=sekolah%20minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
     ];
 
     // --- FETCH DATA ---
@@ -118,7 +118,7 @@
                 
                 banners = data.resources.map(item => ({
                     image_url: `https://res.cloudinary.com/${cloudName}/image/upload/v${item.version}/${item.public_id}.${item.format}`,
-                    link: item.context?.custom?.link || '/katalog' 
+                    link: item.context?.custom?.link || '/produk' 
                 }));
                 
                 updateCache();
@@ -168,7 +168,7 @@
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
-        const urlProduk = `${window.location.origin}/produk/${selectedProduct.slug}`;
+        const urlProduk = `${window.location.origin}/produk/detail-produk/${selectedProduct.slug}`;
         const pesan = `*${selectedProduct.name}*\nHarga: ${formatRupiah(selectedProduct.final_price)}\nLink: ${urlProduk}\n\nHallo Admin, apakah stok produk ini masih tersedia di cabang kakak?`;
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; 
@@ -186,14 +186,6 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
 </svelte:head>
-
-<style>
-    .scrollbar-hide::-webkit-scrollbar { display: none; }
-    .scrollbar-hide { -ms-overflow-style: none; scrollbar-width: none; }
-    .custom-scrollbar::-webkit-scrollbar { width: 4px; }
-    .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
-    .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #e5e7eb; border-radius: 20px; }
-</style>
 
 <div class="min-h-screen bg-white font-sans pb-20 text-gray-800" style="font-family: 'Poppins', sans-serif !important;">
     
@@ -229,17 +221,6 @@
         {/if}
     </section>
 
-    <section class="w-full mb-10 text-center" aria-label="Sambutan">
-        <div class="container mx-auto px-4 max-w-[800px]">
-            <h1 class="text-2xl md:text-3xl font-extrabold text-gray-900 mb-3">
-                Narwastu Toko Kristiani
-            </h1>
-            <p class="text-sm md:text-base text-gray-500 font-medium leading-relaxed">
-                Toko Rohani Narwastu menjual aneka barang rohani Kristiani dan aneka buku rohani berkualitas untuk menemani perjalanan iman Anda.
-            </p>
-        </div>
-    </section>
-
     <nav class="w-full mb-14" aria-label="Kategori Gambar">
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="grid grid-cols-4 gap-2 md:gap-4">
@@ -261,7 +242,7 @@
     {#snippet productCard(item)}
         <div class="group relative flex flex-col h-full cursor-pointer">
             <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
-                <a href="/produk/{item.slug}" class="block w-full h-full">
+                <a href="/produk/detail-produk/{item.slug}" class="block w-full h-full">
                     <img src={optimizeUrl(item.image_1_url)} alt={item.name} loading="lazy" decoding="async" class="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
                 </a>
                 {#if item.discount_label}
@@ -270,7 +251,7 @@
             </div>
             <div class="flex flex-col flex-grow px-1">
                 <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">{item.subcategory || item.category || 'Umum'}</div>
-                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]"><a href="/produk/{item.slug}">{item.name}</a></h3>
+                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]"><a href="/produk/detail-produk/{item.slug}">{item.name}</a></h3>
                 <div class="mt-auto pt-1">
                     <div class="flex flex-col items-start">
                         {#if item.display_strike_price > item.final_price}
@@ -308,7 +289,7 @@
             </div>
 
             <div class="text-center mt-6">
-                <a href="/katalog?sort=promo" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
+                <a href="/produk?sort=promo" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
                     Lihat Semua Promo
                 </a>
             </div>
@@ -350,7 +331,7 @@
             </div>
 
             <div class="text-center mt-8">
-                <a href="/katalog?sort=newest" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
+                <a href="/produk?sort=newest" class="inline-block border-b border-gray-900 text-gray-900 text-[10px] md:text-xs font-bold uppercase tracking-widest pb-1 hover:text-[#C4161C] hover:border-[#C4161C] transition-colors">
                     Lihat Semua Koleksi
                 </a>
             </div>
