@@ -168,7 +168,7 @@
     function chatBranch(branchPhone) {
         if (!selectedProduct || !branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
-        const urlProduk = `${window.location.origin}/produk/detail-produk/${selectedProduct.slug}`;
+        const urlProduk = `${window.location.origin}/detail-produk/${selectedProduct.slug}`;
         const pesan = `*${selectedProduct.name}*\nHarga: ${formatRupiah(selectedProduct.final_price)}\nLink: ${urlProduk}\n\nHallo Admin, apakah stok produk ini masih tersedia di cabang kakak?`;
         window.open(`https://wa.me/${phone}?text=${encodeURIComponent(pesan)}`, '_blank');
         showBranchModal = false; 
@@ -242,7 +242,7 @@
     {#snippet productCard(item)}
         <div class="group relative flex flex-col h-full cursor-pointer">
             <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
-                <a href="/produk/detail-produk/{item.slug}" class="block w-full h-full">
+                <a href="/detail-produk/{item.slug}" class="block w-full h-full">
                     <img src={optimizeUrl(item.image_1_url)} alt={item.name} loading="lazy" decoding="async" class="w-full h-full object-contain p-2 transition-transform duration-500 group-hover:scale-105" />
                 </a>
                 {#if item.discount_label}
@@ -251,7 +251,7 @@
             </div>
             <div class="flex flex-col flex-grow px-1">
                 <div class="text-[9px] text-gray-400 font-bold uppercase tracking-wider mb-1 truncate">{item.subcategory || item.category || 'Umum'}</div>
-                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]"><a href="/produk/detail-produk/{item.slug}">{item.name}</a></h3>
+                <h3 class="text-sm font-bold text-gray-900 leading-snug line-clamp-2 mb-2 group-hover:text-[#C4161C] transition-colors min-h-[40px]"><a href="/detail-produk/{item.slug}">{item.name}</a></h3>
                 <div class="mt-auto pt-1">
                     <div class="flex flex-col items-start">
                         {#if item.display_strike_price > item.final_price}
