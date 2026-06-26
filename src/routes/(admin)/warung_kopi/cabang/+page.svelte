@@ -82,7 +82,10 @@
         e.preventDefault();
         
         const cleanPhone = sanitizePhone(formData.whatsapp);
-        const payload = { ...formData, whatsapp: cleanPhone };
+        
+        // 🔥 MANTRA PENAWAR: Bungkus cleanPhone dengan String() 
+        const payload = { ...formData, whatsapp: String(cleanPhone) };
+        
         const isEditMode = isEditing; 
         const token = localStorage.getItem("token");
 
@@ -130,7 +133,7 @@
     function resetForm() {
         formData = { id: null, name: '', whatsapp: '', address: '', maps_url: '', is_active: true };
     }
-
+    
     // --- 5. TOGGLE STATUS (OPTIMISTIC) ---
     async function toggleStatus(branch) {
         if(!confirm(`Ubah status cabang ${branch.name}?`)) return;
