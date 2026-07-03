@@ -287,7 +287,7 @@
                     {#each Array(6) as _}<div class="bg-gray-50 rounded-xl aspect-[3/4] animate-pulse"></div>{/each}
                 {:else}
                     {#each relatedProducts as item}
-                        <a href="/produk/{item.slug}" class="group block">
+                        <a href="/detail-produk/{item.slug}" class="group block">
                             <div class="rounded-xl aspect-[3/4] mb-3 overflow-hidden bg-white flex items-center justify-center">
                                 <img src={optimizeCloudinary(item.image_1_url)} class="max-w-full max-h-full object-contain p-2 group-hover:scale-110 transition duration-500" alt={item.name} loading="lazy">
                             </div>
