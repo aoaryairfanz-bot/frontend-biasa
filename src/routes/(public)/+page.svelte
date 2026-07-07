@@ -50,10 +50,10 @@
 
     // Data Kategori Gambar Statis Baginda
     const mainCategories = [
-        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/produk?category=nonbook&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718745/018cb695-28c1-46cd-abd5-4afe9f8c94ea.png' },
-        { id: 'alkitab', label: 'Alkitab', link: '/produk?page=1&subcategory=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775718461/55b91614-277a-4372-ac52-4a534a1fddd3.png' },
-        { id: 'buku', label: 'Buku', link: '/produk?category=book&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775722688/034b01a0-dea1-4125-b816-42110d8db009.png' },
-        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/produk?page=1&subcategory=Sekolah+Minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/q_auto/f_auto/v1775720792/d6c63fd9-e819-4839-ac9b-9587bb2e2003.png' }
+        { id: 'rohani', label: 'Perlengkapan Rohani', link: '/produk?category=nonbook&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/v1783398852/download_1_ixv5qi.png' },
+        { id: 'alkitab', label: 'Alkitab', link: '/produk?page=1&subcategory=alkitab', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/v1783398346/17bb3f0f-b3e2-49c8-8d69-ed9ca0a5e6d1.png' },
+        { id: 'buku', label: 'Buku', link: '/produk?category=book&page=1', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/v1783398532/380f2c00-3ad7-454c-87de-16fc4596adf9.png' },
+        { id: 'sekolah-minggu', label: 'Sekolah Minggu', link: '/produk?page=1&subcategory=Sekolah+Minggu', imageUrl: 'https://res.cloudinary.com/dqyztrelw/image/upload/v1783399064/bf3cab95-9e04-40dc-8ce2-ede0e0bb1355.png' }
     ];
 
     // --- FETCH DATA ---
@@ -225,7 +225,8 @@
         <div class="container mx-auto px-4 max-w-[1200px]">
             <div class="grid grid-cols-4 gap-2 md:gap-4">
                 {#each mainCategories as cat}
-                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-lg md:rounded-2xl overflow-hidden shadow-sm hover:shadow-md transition-shadow">
+                    <!-- [+] RADIUS DIUBAH MENJADI ROUNDED-MD MD:ROUNDED-LG AGAR TIDAK TERLALU TUMPUL -->
+                    <a href={cat.link} class="group relative block w-full aspect-[4/3] md:aspect-[2.5/1] rounded-md md:rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow">
                         <img src={cat.imageUrl} alt={cat.label} class="absolute inset-0 w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-700" loading="lazy" decoding="async" />
                         <div class="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent group-hover:from-black/90 transition-colors z-10 duration-500"></div>
                         <div class="absolute inset-x-0 bottom-0 z-20 flex items-end justify-center p-1 pb-1.5 md:p-3 md:pb-4">
@@ -238,7 +239,6 @@
             </div>
         </div>
     </nav>
-
     {#snippet productCard(item)}
         <div class="group relative flex flex-col h-full cursor-pointer">
             <div class="relative w-full aspect-[3/4] mb-3 overflow-hidden rounded-xl bg-transparent">
