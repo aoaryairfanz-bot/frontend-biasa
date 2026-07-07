@@ -4,10 +4,11 @@
     import { Share2Icon, CheckIcon, XIcon, MessageCircleIcon, MapPinIcon, BoxIcon } from 'svelte-feather-icons';
     import { fly, fade } from 'svelte/transition';
 
-    // AMBIL DATA
+    // AMBIL DATA (UPDATED WITH DETECTED ZONE)
     let { data } = $props();
     let product = $derived(data.product); 
     let slug = $derived(data.slug);
+    let detectedZone = $derived(data.detectedZone || 1); // [+] Menangkap zona hasil tebakan IP
 
     // STATE
     let relatedProducts = $state([]);       
@@ -31,6 +32,15 @@
         let list = [product.image_1_url, product.image_2_url, product.image_3_url].filter(Boolean);
         if (product.video_url) list.push(product.video_url);
         return list;
+    });
+
+    // [+] LOGIKA REAKTIF MULTI-ZONA TERMASUK MANTRA ZONA 10 (VPN PSYCHOLOGY)
+    let activePrice = $derived.by(() => {
+        if (!product) return 0;
+        if (detectedZone === 10) return 15000000; // Buku Tulis Rp15 Juta biar kaget! wkwkwk
+        if (detectedZone === 3) return product.final_price_zone_3 || Math.floor(product.final_price * 1.25);
+        if (detectedZone === 2) return product.final_price_zone_2 || Math.floor(product.final_price * 1.10);
+        return product.final_price; // Zona 1 (Default)
     });
 
     $effect(() => {
@@ -85,16 +95,18 @@
 
     function openBuyModal() { showBranchModal = true; }
 
-    // [UPDATE PENTING] Hapus URL Gambar di Text Body agar Preview Card WA Muncul
+    // [UPDATE PENTING] Sinkronisasi Harga Sesuai Wilayah Terdeteksi ke WhatsApp Admin
     function chatBranch(branchPhone) {
         if (!branchPhone) return;
         const phone = branchPhone.replace(/\D/g, '').replace(/^0/, '62');
         const urlProduk = $page.url.href;
         
-        // Cukup kirim Link Produk. WhatsApp akan otomatis ambil og:image sebagai preview card.
+        let infoZonaText = `Zona ${detectedZone}`;
+        if (detectedZone === 10) infoZonaText = "Zona Internasional (VPN Luar Negeri)";
+
         const pesan = 
             `*${product.name}*\n` +
-            `Harga: ${formatRupiah(product.final_price)}\n` + 
+            `Harga (${infoZonaText}): ${formatRupiah(activePrice)}\n` + 
             `Link: ${urlProduk}\n\n` + 
             `Hallo Admin, apakah stok produk ini masih tersedia?`;
             
@@ -121,7 +133,7 @@
     
     function formatDimensi() {
         const { length: p, width: l, height: t } = product || {};
-        if (p || l || t) return `${p}x${l}x${t}`; // Disingkat agar muat di mobile
+        if (p || l || t) return `${p}x${l}x${t}`; 
         return "-";
     }
 </script>
@@ -130,7 +142,7 @@
     <title>{product ? product.name : 'Narwastu Store'}</title>
     <meta property="og:type" content="product" />
     <meta property="og:title" content={product ? product.name : 'Narwastu Store'} />
-    <meta property="og:description" content={product ? `Harga: ${formatRupiah(product.final_price)}` : 'Toko Rohani Terlengkap'} />
+    <meta property="og:description" content={product ? `Harga: ${formatRupiah(activePrice)}` : 'Toko Rohani Terlengkap'} />
     <meta property="og:url" content={$page.url.href} />
     <meta property="og:image" content={product ? product.image_1_url : ''} />
     <meta property="og:image:width" content="600" />
@@ -152,6 +164,13 @@
 <div class="min-h-screen bg-white pb-32 font-sans text-gray-800 relative" style="font-family: 'Poppins', sans-serif !important;">
     
     {#if product}
+        <!-- BANNER PERINGATAN VPN SAKTI (ZONA 10) -->
+        {#if detectedZone === 10}
+            <div class="bg-red-50 border-b border-red-200 p-3 text-center text-xs font-bold text-red-700 animate-pulse shrink-0 z-50">
+                ⚠️ Lokasi Anda terdeteksi di luar negeri (Singapura / Jalur VPN). Kami menampilkan Harga Zona Utama Khusus. Silakan sesuaikan lokasi Anda jika ingin melakukan pengiriman lokal.
+            </div>
+        {/if}
+
         <div class="border-b border-gray-50 bg-white">
             <div class="container mx-auto px-4 py-3 max-w-7xl text-[10px] md:text-xs font-medium text-gray-400 flex items-center">
                 <a href="/" class="hover:text-gray-900 transition-colors">Home</a> <span class="mx-2">/</span> 
@@ -162,10 +181,10 @@
 
         <div class="container mx-auto px-4 max-w-7xl mt-8 md:mt-12">
             <div class="flex flex-col md:flex-row gap-10 md:gap-16">
-                
-                <div class="w-full md:w-[480px] shrink-0 flex flex-col gap-6">
+                <!-- [+] BOX FOTO PRODUK DIKECILKAN MENJADI 400px AGAR PROPORSIAL -->
+                <div class="w-full md:w-[400px] shrink-0 flex flex-col gap-6">
                     <div class="relative w-full aspect-square overflow-hidden group">
-                        {#if product.discount_label}
+                        {#if product.discount_label && detectedZone !== 10}
                             <div class="absolute top-0 left-0 z-10 bg-[#C4161C] text-white text-xs font-bold px-3 py-1.5 rounded-br-xl shadow-sm">
                                 {product.discount_label} OFF
                             </div>
@@ -206,17 +225,19 @@
                 </div>
 
                 <div class="flex-1 flex flex-col min-w-0 pt-2">
+                    <!-- [+] UKURAN FONT NAMA PRODUK DISESUAIKAN MENJADI TEXT-XL MD:TEXT-2XL -->
                     <div class="mb-4">
                         <span class="text-xs font-bold text-gray-400 uppercase tracking-widest mb-2 block">{product.author || "Narwastu Collection"}</span>
-                        <h1 class="text-2xl md:text-4xl font-extrabold text-gray-900 leading-tight">{product.name}</h1>
+                        <h1 class="text-xl md:text-2xl font-bold text-gray-900 leading-tight">{product.name}</h1>
                     </div>
 
+                    <!-- [+] UKURAN FONT HARGA UTAMA DISESUAIKAN MENJADI TEXT-2XL MD:TEXT-3XL -->
                     <div class="mb-8 border-b border-gray-100 pb-6">
                         <div class="flex items-baseline gap-3">
-                            <span class="text-4xl md:text-5xl font-black text-[#C4161C] tracking-tight">
-                                {formatRupiah(product.final_price)}
+                            <span class="text-2xl md:text-3xl font-extrabold text-[#C4161C] tracking-tight">
+                                {formatRupiah(activePrice)}
                             </span>
-                            {#if product.display_strike_price > product.final_price}
+                            {#if product.display_strike_price > product.final_price && detectedZone !== 10}
                                 <div class="flex flex-col items-start leading-none">
                                     <span class="text-base text-gray-400 line-through decoration-gray-300">
                                         {formatRupiah(product.display_strike_price)}
@@ -224,6 +245,35 @@
                                     <span class="text-[10px] font-bold text-red-500 uppercase tracking-wide mt-0.5">Hemat {formatRupiah(product.display_strike_price - product.final_price)}</span>
                                 </div>
                             {/if}
+                        </div>
+                    </div>
+
+                    <div class="mb-8 space-y-3">
+                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5"><MapPinIcon size="12"/> Zona Wilayah Pengiriman (Andi Publisher Standar)</h4>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
+                            <div class="border rounded-xl p-3 flex flex-col justify-between transition-all duration-300 relative overflow-hidden
+                                {detectedZone === 1 ? 'border-[#C4161C] bg-red-50/20 scale-[1.03] ring-1 ring-[#C4161C]/30 shadow-sm' : 'border-gray-200 opacity-60 bg-white'}">
+                                {#if detectedZone === 1} <div class="absolute top-0 right-0 bg-[#C4161C] text-white font-bold text-[8px] px-2 py-0.5 rounded-bl-lg tracking-wide uppercase">📍 Lokasi Anda</div> {/if}
+                                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Zona 1</div>
+                                <div class="text-base font-extrabold text-gray-900 mt-1">{detectedZone === 10 ? formatRupiah(15000000) : formatRupiah(product.final_price)}</div>
+                                <div class="text-[9px] text-gray-500 mt-1.5 leading-tight font-medium">Jawa, Bali, NTB Utama, Lampung, Palembang</div>
+                            </div>
+
+                            <div class="border rounded-xl p-3 flex flex-col justify-between transition-all duration-300 relative overflow-hidden
+                                {detectedZone === 2 ? 'border-[#C4161C] bg-red-50/20 scale-[1.03] ring-1 ring-[#C4161C]/30 shadow-sm' : 'border-gray-200 opacity-60 bg-white'}">
+                                {#if detectedZone === 2} <div class="absolute top-0 right-0 bg-[#C4161C] text-white font-bold text-[8px] px-2 py-0.5 rounded-bl-lg tracking-wide uppercase">📍 Lokasi Anda</div> {/if}
+                                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Zona 2 (+10%)</div>
+                                <div class="text-base font-extrabold text-gray-900 mt-1">{detectedZone === 10 ? formatRupiah(15000000) : formatRupiah(product.final_price_zone_2 || Math.floor(product.final_price * 1.10))}</div>
+                                <div class="text-[9px] text-gray-500 mt-1.5 leading-tight font-medium">Aceh, Medan, Pekanbaru, Padang, Batam, Kalimantan, Sulawesi</div>
+                            </div>
+
+                            <div class="border rounded-xl p-3 flex flex-col justify-between transition-all duration-300 relative overflow-hidden
+                                {detectedZone === 3 ? 'border-[#C4161C] bg-red-50/20 scale-[1.03] ring-1 ring-[#C4161C]/30 shadow-sm' : 'border-gray-200 opacity-60 bg-white'}">
+                                {#if detectedZone === 3} <div class="absolute top-0 right-0 bg-[#C4161C] text-white font-bold text-[8px] px-2 py-0.5 rounded-bl-lg tracking-wide uppercase">📍 Lokasi Anda</div> {/if}
+                                <div class="text-[10px] font-bold text-gray-400 uppercase tracking-wide">Zona 3 (+25%)</div>
+                                <div class="text-base font-extrabold text-gray-900 mt-1">{detectedZone === 10 ? formatRupiah(15000000) : formatRupiah(product.final_price_zone_3 || Math.floor(product.final_price * 1.25))}</div>
+                                <div class="text-[9px] text-gray-500 mt-1.5 leading-tight font-medium">Maluku, Papua, NTT, NTB Luar</div>
+                            </div>
                         </div>
                     </div>
 
@@ -264,15 +314,63 @@
                         </div>
                     </div>
 
-                    <div class="hidden md:flex items-center gap-4 mt-auto pt-6 border-t border-gray-100">
-                        <button onclick={openBuyModal} class="flex-1 h-14 bg-[#C4161C] hover:bg-[#a51318] text-white font-bold rounded-xl shadow-lg hover:shadow-xl transition-all transform hover:-translate-y-0.5 flex items-center justify-center gap-3 text-lg uppercase tracking-wide">
-                            <span>Beli Sekarang</span>
-                        </button>
-                        
-                        <button onclick={handleShare} class="h-14 w-14 flex items-center justify-center border-2 border-gray-100 rounded-xl text-gray-400 hover:text-gray-600 hover:bg-gray-50 transition-colors" title="Bagikan">
-                            {#if isCopied} <CheckIcon size="24" class="text-green-600" />
-                            {:else} <Share2Icon size="24" /> {/if}
-                        </button>
+                    <!-- [+] FLOATING BAR PREMIUM ALA GRAMEDIA (DESKTOP & MOBILE INTEGRATED) 🚀 -->
+                    <!-- ========================================================================= -->
+                    <div class="fixed bottom-0 left-0 right-0 z-50 mx-auto px-4 mb-4 max-w-7xl">
+                        <div class="mx-auto bg-white/95 backdrop-blur-md px-4 py-2.5 shadow-[0_-10px_30px_rgba(0,0,0,0.08)] rounded-xl border border-gray-100 animate-in slide-in-from-bottom duration-500">
+                            <div class="flex items-center justify-between gap-4">
+                                
+                                <!-- KIRI: FOTO KECIL & INFO PRODUK (TIDAK SEMBUNYI DI DESKTOP/MOBILE, COCOK UNTUK SEMUA) -->
+                                <div class="flex items-center gap-3 min-w-0">
+                                    <!-- Foto Kecil Produk -->
+                                    <div class="relative h-14 w-14 shrink-0 bg-gray-50 rounded-lg p-1 border border-gray-100 flex items-center justify-center overflow-hidden">
+                                        <img alt="{product.name}" class="max-w-full max-h-full object-contain" src={product.image_1_url || 'https://placehold.co/100?text=No+Img'} />
+                                    </div>
+                                    
+                                    <!-- Detail Text Ringkas -->
+                                    <div class="flex flex-col min-w-0 leading-tight">
+                                        <span class="text-[9px] font-bold text-gray-400 uppercase tracking-wider truncate">
+                                            {product.author || "Narwastu Collection"}
+                                        </span>
+                                        <h2 class="font-bold text-gray-800 text-xs md:text-sm truncate max-w-[150px] md:max-w-md" title={product.name}>
+                                            {product.name}
+                                        </h2>
+                                        <!-- Harga Otomatis Mengikuti Zona IP Pembeli -->
+                                        <div class="mt-0.5 flex items-center gap-1.5">
+                                            <span class="text-sm md:text-base font-black text-[#C4161C] tracking-tight">
+                                                {formatRupiah(activePrice)}
+                                            </span>
+                                            {#if detectedZone !== 10}
+                                                <span class="text-[8px] bg-red-50 text-[#C4161C] border border-red-200/50 px-1 rounded font-black uppercase tracking-wide">
+                                                    Zona {detectedZone}
+                                                </span>
+                                            {:else}
+                                                <span class="text-[8px] bg-red-600 text-white px-1 rounded font-black uppercase tracking-wide animate-pulse">
+                                                    VPN ON
+                                                </span>
+                                            {/if}
+                                        </div>
+                                    </div>
+                                </div>
+                            <div class="flex items-center gap-2 shrink-0">
+                                <!-- Tombol Bagikan / Share (Kontras Tinggi, Tanpa Border) -->
+                                <button onclick={handleShare} class="h-9 w-9 flex items-center justify-center rounded-md text-gray-800 hover:text-gray-900 hover:bg-gray-100 transition-all bg-white font-bold" title="Bagikan Produk">
+                                    {#if isCopied} 
+                                        <CheckIcon size="16" class="text-green-600 font-bold" />
+                                    {:else} 
+                                        <Share2Icon size="16" class="stroke-[2.5]" /> 
+                                    {/if}
+                                </button>
+                                
+                                <!-- Tombol Beli Langsing Ramping (Radius md - Tegas & Presisi) -->
+                                <button onclick={openBuyModal} class="h-9 px-5 md:px-8 bg-[#C4161C] hover:bg-[#a51318] text-white font-bold rounded-md shadow-md hover:shadow-lg shadow-red-100 hover:shadow-red-200 transition-all transform active:scale-95 text-xs md:text-sm uppercase tracking-wide flex items-center justify-center gap-1.5 outline-none border-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" width="14px" height="14px" stroke-width="2.5" class="feather feather-plus"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+                                    <span>Beli Sekarang</span>
+                                </button>
+                            </div>
+
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -302,7 +400,7 @@
         <div class="fixed bottom-0 left-0 w-full bg-white border-t border-gray-200 p-4 z-50 md:hidden shadow-[0_-4px_20px_rgba(0,0,0,0.05)] flex gap-3 items-center">
             <div class="flex-1">
                 <div class="text-[10px] text-gray-400 font-bold uppercase tracking-wider">Total</div>
-                <div class="text-xl font-black text-[#C4161C] leading-none">{formatRupiah(product.final_price)}</div>
+                <div class="text-xl font-black text-[#C4161C] leading-none">{formatRupiah(activePrice)}</div>
             </div>
             <button onclick={handleShare} class="w-12 h-12 flex items-center justify-center border border-gray-200 rounded-xl text-gray-400 bg-white">
                 {#if isCopied} <CheckIcon size="20" class="text-green-600" />
@@ -329,12 +427,6 @@
     {#if showBranchModal}
     <div class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
         <div class="bg-white w-full max-w-5xl rounded-2xl shadow-xl overflow-hidden animate-in zoom-in-95 duration-200 flex flex-col max-h-[85vh]">
-            <!-- <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
-                <h3 class="text-lg font-bold text-gray-900">Pilih Lokasi</h3>
-                <button onclick={() => showBranchModal = false} class="text-gray-400 hover:text-red-500 transition">
-                    <XIcon size="24"/>
-                </button>
-            </div> -->
             <div class="flex justify-between items-center p-5 border-b border-gray-100 shrink-0">
                 <div>
                     <h3 class="text-lg font-bold text-gray-900">Pilih Lokasi</h3>
