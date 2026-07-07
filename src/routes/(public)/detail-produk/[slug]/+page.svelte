@@ -249,7 +249,7 @@
                     </div>
 
                     <div class="mb-8 space-y-3">
-                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5"><MapPinIcon size="12"/> Zona Wilayah Pengiriman (Andi Publisher Standar)</h4>
+                        <h4 class="text-xs font-bold text-gray-400 uppercase tracking-wider flex items-center gap-1.5"><MapPinIcon size="12"/> Zona Wilayah Pengiriman</h4>
                         <div class="grid grid-cols-1 md:grid-cols-3 gap-3">
                             <div class="border rounded-xl p-3 flex flex-col justify-between transition-all duration-300 relative overflow-hidden
                                 {detectedZone === 1 ? 'border-[#C4161C] bg-red-50/20 scale-[1.03] ring-1 ring-[#C4161C]/30 shadow-sm' : 'border-gray-200 opacity-60 bg-white'}">
